@@ -5,7 +5,6 @@ __pycache__/
 
 # SQLite Database & temporary journal files
 database/*.db
-*.db
 *.db-journal
 *.db-wal
 *.db-shm
