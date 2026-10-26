@@ -239,6 +239,121 @@ def get_employee_by_email(email):
 
     return employee
 
+
+def get_employee_by_id(employee_id):
+    """Returns (id, first, second, email, username, password, role_name, role_icon) for an employee id."""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    SELECT e.id, e.first_name, e.second_name, e.email, e.username,
+           e.password, r.name, r.icon
+    FROM employees e
+    JOIN roles r ON r.id = e.role_id
+    WHERE e.id = ?
+    """, (employee_id,))
+    employee = cursor.fetchone()
+
+    connection.close()
+
+    return employee
+
+
+def get_employee(identifier):
+    """Gets an employee by ID (int) or email (str).
+    
+    Returns (id, first, second, email, username, password, role_name, role_icon) or None.
+    """
+    if isinstance(identifier, int) or (isinstance(identifier, str) and identifier.isdigit()):
+        return get_employee_by_id(int(identifier))
+    return get_employee_by_email(str(identifier))
+
+
+def get_all_employees():
+    """Returns all employees: [(id, first, second, email, username, password, role_name, role_icon), ...]"""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    SELECT e.id, e.first_name, e.second_name, e.email, e.username,
+           e.password, r.name, r.icon
+    FROM employees e
+    JOIN roles r ON r.id = e.role_id
+    ORDER BY e.id
+    """)
+    employees = cursor.fetchall()
+
+    connection.close()
+
+    return employees
+
+
+def set_employee(first_name, second_name, email, username, password, role="employee", employee_id=None):
+    """Adds a new employee or updates an existing employee if employee_id is provided.
+
+    :param first_name: Employee's first name
+    :param second_name: Employee's second name (last name)
+    :param email: Employee's company email
+    :param username: Employee's username
+    :param password: Password (plaintext or already hashed)
+    :param role: Role name (str, e.g. 'employee', 'manager') or role_id (int)
+    :param employee_id: Optional existing employee ID to update. If None, inserts a new employee.
+    :return: The employee's ID.
+    """
+    connection = get_database_connection()
+    cursor = connection.cursor()
+    try:
+        if isinstance(role, int):
+            role_row = cursor.execute("SELECT id FROM roles WHERE id = ?", (role,)).fetchone()
+        else:
+            role_row = cursor.execute("SELECT id FROM roles WHERE name = ?", (role,)).fetchone()
+
+        if role_row is None:
+            raise ValueError(f"Role '{role}' does not exist.")
+
+        role_id = role_row[0]
+
+        # Hash password if not already an argon2 hash string
+        hashed_password = (
+            password
+            if isinstance(password, str) and password.startswith("$argon2")
+            else password_hash(password)
+        )
+
+        if employee_id is None:
+            cursor.execute("""
+            INSERT INTO employees (first_name, second_name, email, username, password, role_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (first_name, second_name, email, username, hashed_password, role_id))
+            emp_id = cursor.lastrowid
+        else:
+            cursor.execute("""
+            UPDATE employees
+            SET first_name = ?, second_name = ?, email = ?, username = ?, password = ?, role_id = ?
+            WHERE id = ?
+            """, (first_name, second_name, email, username, hashed_password, role_id, employee_id))
+            emp_id = employee_id
+
+        connection.commit()
+        return emp_id
+    finally:
+        connection.close()
+
+
+def add_employee(first_name, second_name, email, username, password, role="employee"):
+    """Convenience setter to add a new employee to the database and return their new ID."""
+    return set_employee(first_name, second_name, email, username, password, role=role)
+
+def remove_employee(employee_id):
+    """Removes an employee from the database by their ID."""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+    try:
+        cursor.execute("DELETE FROM employees WHERE id = ?", (employee_id,))
+        connection.commit()
+    finally:
+        connection.close()
+
 def get_projects_for_manager(manager_id):
     connection = get_database_connection()
     cursor = connection.cursor()
@@ -272,47 +387,24 @@ def get_projects_for_employee(employee_id):
 
 
 
-
-
-
-
-
-
 ###Basis to provide test data for the database for testing purposes
 def add_simulated_data_to_db():
-    connection = get_database_connection()
-    cursor = connection.cursor()
+    # Format: first_name, second_name, email, username, password, role
     people = [
-        ("Alex", "Smith", "alex.smith@makeitall.com", "alex_smith", "Employee1?", "employee"),
-        ("John", "Paul", "john.paul@makeitall.com", "john_paul", "TeamLeader1?", "team leader"),
-        ("Sarah", "Jones", "sarah.jones@makeitall.com", "sarah_jones", "Manager1?", "manager"),
-        ("Admin", "1", "admin@makeitall.com", "admin", "Administrator1?", "administrator"),
+        ("Alex", "Smith", "alex.smith@makeitall.com", "alex_smith", "password", "employee"),
+        ("John", "Paul", "john.paul@makeitall.com", "john_paul", "password", "team leader"),
+        ("Sarah", "Jones", "sarah.jones@makeitall.com", "sarah_jones", "password", "manager"),
+        ("Admin", "1", "admin@makeitall.com", "admin", "admin1", "administrator"),
+        ("Tony", "Stark", "tony.stark@makeitall.com", "tony_stark", "password", "manager")
     ]
     for first, second, email, username, password, role in people:
-        cursor.execute("""
-        INSERT INTO employees (first_name, second_name, email,
-        username, password, role_id)
-        VALUES (?,?,?,?,?,(SELECT id FROM roles WHERE name = ?))""",
-        (first, second, email, username, password_hash(password), role))
-    connection.commit()
-    connection.close()
+        add_employee(first, second, email, username, password, role=role)
 
 
 
 
 create_tables()
-"""
-Added the simulated once (23.10.2026 15:10 ANORBS), now commented out
-employees simulated data
-employee - Alex, Smith,Email -  alex.smith@makeitall.com,Username -  alex_smith,Password - Employee1?,Role - employee
-teamleader - John, Paul,Email -  john.paul@makeitall.com,Username -  john_paul,Password - TeamLeader1?,Role - team leader
-manager - Sarah, Jones, Email - sarah.jones@makeitall.com,Username - sarah_jones,Passowrd - Manager1?,Role - manager
-admin - admin, 1, Email - admin@makeitall.com,Username - admin,Password - Administrator1?, Role - administrator
-add_simulated_data_to_db() - No need for method to be ran again
-projects table data also has been simulated
-project members table also been simulated
-install db viewer extension to view db
-"""
+
 def select_all_data():
     connection = get_database_connection()
     cursor = connection.cursor()
@@ -322,4 +414,7 @@ def select_all_data():
     data = cursor.fetchall()
     return data
 
+if __name__ == "__main__":
+    # Use this to add simulated data to the database for testing purposes.
+    add_employee("Peter", "Parker", "peter.parker@makeitall.com", "peter_parker", "password", "employee")
 

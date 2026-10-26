@@ -20,7 +20,8 @@ if __name__ == "__main__":
     sys.exit(main())
 
 """
-Employee passwords are: Employee1?, TeamLeader1?, Manager1?, Administrator1?
+Employee, manager and team leader passwords are: password
+Admin password is: admin1
 Depending on the role.
 alex.smith@makeitall.com
 """
