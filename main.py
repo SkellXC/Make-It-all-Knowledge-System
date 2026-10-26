@@ -18,3 +18,8 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+"""
+Employee passwords are: Employee1?, TeamLeader1?, Manager1?, Administrator1?
+Depending on the role.
+"""

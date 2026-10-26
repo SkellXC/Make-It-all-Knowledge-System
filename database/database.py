@@ -184,7 +184,7 @@ create_tables()
 #employees simulated data
 #employee - Alex, Smith,Email -  alex.smith@makeitall.com,Username -  alex_smith,Password - Employee1?,Role - employee
 #teamleader - John, Paul,Email -  john.paul@makeitall.com,Username -  john_paul,Password - TeamLeader1?,Role - team leader
-#manager - Sarah, Jones, Email - sarah.jones@makeitall.com,Username - sarah_jones,Passowrd - Manager1,Role - manager
+#manager - Sarah, Jones, Email - sarah.jones@makeitall.com,Username - sarah_jones,Passowrd - Manager1?,Role - manager
 #admin - admin, 1, Email - admin@makeitall.com,Username - admin,Password - Administrator1?, Role - administrator
 #add_simulated_data_to_db() - No need for method to be ran again
 #projects table data also has been simulated
