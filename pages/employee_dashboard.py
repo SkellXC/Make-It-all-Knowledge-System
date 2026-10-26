@@ -2,23 +2,6 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget,QLabel,QHBoxLayout,QGridLayou
 from database.database import get_projects_for_employee
 
 
-class EmployeeDashboard(QWidget):
-    def __init__(self, user=None, parent=None):
-        super().__init__(parent)
-        self.user = user
-        self.setup_ui()
-
-    def setup_ui(self):
-        self.content_layout = QVBoxLayout(self)
-        self.content_layout.setContentsMargins(28, 26, 28, 24)
-        # Add this module's widgets to self.content_layout.
-    from PySide6.QtWidgets import (
-    QFrame, QLabel, QVBoxLayout, QWidget,
-    QHBoxLayout, QGridLayout
-)
-
-from database.database import get_projects_for_employee
-
 
 class EmployeeDashboard(QWidget):
     def __init__(self, user=None, parent=None):
