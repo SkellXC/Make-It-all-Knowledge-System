@@ -24,4 +24,5 @@ Employee, manager and team leader passwords are: password
 Admin password is: admin1
 Depending on the role.
 alex.smith@makeitall.com
+sarah.jones@makeitall.com
 """

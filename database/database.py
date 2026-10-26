@@ -417,7 +417,8 @@ def select_all_data():
 if __name__ == "__main__":
     # Use this to add simulated data to the database for testing purposes.
     add_employee("Tony", "Stark", "tony.stark@makeitall.com", "tony_stark", "password", "manager")
-    # Run the file once update the database
-# Run 
-# python -m database.database                                  
-# if you get an import error.
+
+
+# Run the file once update the database
+
+# Run python -m database.database  if you get an import error.                              

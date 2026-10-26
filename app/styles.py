@@ -98,4 +98,25 @@ QFrame#statusEmpty {
 }
 QFrame#loginCard QPushButton:hover { background: #3b5e92; }
 QFrame#loginCard QPushButton:focus { border: 2px solid #91abd0; }
+/* Roles & Permissions page */
+QListWidget#roleList {
+    background: white;
+    border: 1px solid #d9dee7;
+    border-radius: 10px;
+    padding: 6px;
+    outline: none;
+}
+QListWidget#roleList::item { padding: 10px 12px; border-radius: 6px; }
+QListWidget#roleList::item:hover { background: #eef2f8; }
+QListWidget#roleList::item:selected { background: #355783; color: white; }
+QLabel#permissionGroup {
+    color: #667085;
+    font-size: 13px;
+    font-weight: 600;
+    padding-top: 10px;
+}
+QLabel#lockedNote { color: #617086; }
+QLabel#rolesMessage { color: #a3313c; }
+QCheckBox { spacing: 10px; padding: 5px 0; }
+QCheckBox:disabled { color: #8495ac; }
 """

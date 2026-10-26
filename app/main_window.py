@@ -3,11 +3,8 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from app.navigation import PAGES
+from app.navigation import PAGES, dashboard_for, visible_pages
 from pages.login_page import LoginPage
-from pages.employee_dashboard import EmployeeDashboard
-from pages.manager_dashboard import ManagerDashboard
-from pages.team_leader_dashboard import TeamLeaderDashboard
 
 
 class MainWindow(QMainWindow):
@@ -48,7 +45,7 @@ class MainWindow(QMainWindow):
         self.page_stack = QStackedWidget()
 
         links = [("dashboard", "Dashboard")]
-        links.extend((key, label) for key, label, page_class in PAGES)
+        links.extend((page.key, page.label) for page in PAGES)
         for key, label in links:
             button = QPushButton(label)
             button.setCheckable(True)
@@ -74,25 +71,23 @@ class MainWindow(QMainWindow):
     def start_session(self, user):
         self.clear_pages()
         self.user = user.copy()
-        role = user["role"]
 
-        if role == "employee":
-            dashboard = EmployeeDashboard
-        elif role == "manager":
-            dashboard = ManagerDashboard
-        elif role == "team leader":
-            dashboard = TeamLeaderDashboard
-        else:
-            return 
-        self.add_page("dashboard",dashboard)
+        # The dashboard depends on the role; every other page is shown only if
+        # the user has the permission listed for it in app/navigation.py.
+        self.add_page("dashboard", dashboard_for(user["role"]))
+        for page in visible_pages(self.user):
+            self.add_page(page.key, page.widget)
 
-        for key,label, page_class in PAGES:
-            self.add_page(key,page_class)
+        # Hide sidebar buttons for pages this user can't open.
+        for key, button in self.nav_buttons.items():
+            button.setVisible(key in self.pages)
+
         self.account_label.setText(f"{user['email']}\n{user['role']}")
         self.login_page.clear_form()
         self.root_stack.setCurrentWidget(self.workspace)
         self.show_page("dashboard")
 
+        
     def add_page(self, key, page_class):
         page = page_class(user=self.user.copy())
         self.pages[key] = page
@@ -114,5 +109,6 @@ class MainWindow(QMainWindow):
         self.login_page.email_input.setFocus()
 
     def show_page(self, key):
+        if key not in self.pages:
+            return  # not available to this user
         self.page_stack.setCurrentWidget(self.pages[key])
-        self.nav_buttons[key].setChecked(True)
