@@ -44,6 +44,58 @@ QFrame#loginCard QPushButton {
     border-radius: 6px;
     padding: 10px;
 }
+QFrame#summaryCard {
+    background-color: white;
+    border: 1px solid #d9dee7;
+    border-radius: 10px;
+}
+
+QLabel#summaryCardTitle {
+    color: #667085;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+QLabel#summaryCardValue {
+    color: #1f2937;
+    font-size: 28px;
+    font-weight: bold;
+}
+QFrame#statusNotStarted {
+    background-color: #f59e0b;
+    border-top-left-radius: 9px;
+    border-bottom-left-radius: 9px;
+}
+
+QFrame#statusInProgress {
+    background-color: #3b82f6;
+}
+QFrame#sectionTitle{
+    color: #111827;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+QFrame#statusCompleted {
+    background-color: #22c55e;
+    border-top-right-radius: 9px;
+    border-bottom-right-radius: 9px;
+}
+QFrame#dashboardCard{
+    border: 1px solid #d9dee7;
+    border-radius: 10px;
+    background-color:white; 
+}
+QLabel#statusCompleted{
+    text-align:center;
+}
+QLabel#statusInProgress{
+    text-align:center;
+}
+QFrame#statusEmpty {
+    background-color: #d9dee7;
+    border-radius: 9px;
+}
 QFrame#loginCard QPushButton:hover { background: #3b5e92; }
 QFrame#loginCard QPushButton:focus { border: 2px solid #91abd0; }
 """

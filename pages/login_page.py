@@ -2,15 +2,17 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget,
 )
+#login backend methods imported
+from authentication.login_backend import login_user 
 
 
 # Demo only: these credentials provide no real authentication or account storage.
-DEMO_ACCOUNTS = {
-    "employee@blablabla": "Employee",
-    "teamleader@blablabla": "Team Leader",
-    "manager@blablabla": "Manager",
-}
-DEMO_PASSWORD = "blablabla"
+#DEMO_ACCOUNTS = {
+   # "employee@blablabla": "Employee",
+    #"teamleader@blablabla": "Team Leader",
+    #"manager@blablabla": "Manager",
+#}
+#DEMO_PASSWORD = "blablabla"
 
 
 class LoginPage(QWidget):
@@ -54,8 +56,7 @@ class LoginPage(QWidget):
         self.email_input.returnPressed.connect(self.password_input.setFocus)
         form.addWidget(self.login_button)
         hint = QLabel(
-            "employee@blablabla\nteamleader@blablabla\nmanager@blablabla"
-            "\n\nDemo password: blablabla"
+            "Enter your MakeItAll employee credentials."
         )
         hint.setObjectName("loginHint")
         hint.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -64,14 +65,20 @@ class LoginPage(QWidget):
 
     def login(self):
         email = self.email_input.text().strip().lower()
-        role = DEMO_ACCOUNTS.get(email)
-        if role is None or self.password_input.text() != DEMO_PASSWORD:
-            self.message.setText("Incorrect demo email or password.")
+        password = self.password_input.text()
+
+        employee = login_user(email, password)
+
+        if employee is None:
+            self.message.setText("Incorrect Email or Password")
             self.password_input.clear()
             return
-        self.logged_in.emit({"email": email, "role": role})
+
+        self.logged_in.emit(employee)
 
     def clear_form(self):
         self.email_input.clear()
         self.password_input.clear()
         self.message.clear()
+
+    

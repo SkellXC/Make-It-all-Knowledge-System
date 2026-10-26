@@ -8,11 +8,11 @@ from pages.knowledge_page import KnowledgePage
 from pages.profile_page import ProfilePage
 
 
-DASHBOARDS = {
-    "Employee": EmployeeDashboard,
-    "Team Leader": TeamLeaderDashboard,
-    "Manager": ManagerDashboard,
-}
+#DASHBOARDS = {
+ #   "Employee": EmployeeDashboard,
+  #  "Team Leader": TeamLeaderDashboard,
+   # "Manager": ManagerDashboard,
+#}
 
 # Shared pages: key, sidebar label, widget class.
 PAGES = [

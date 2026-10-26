@@ -3,8 +3,11 @@ from PySide6.QtWidgets import (
     QPushButton, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-from app.navigation import DASHBOARDS, PAGES
+from app.navigation import PAGES
 from pages.login_page import LoginPage
+from pages.employee_dashboard import EmployeeDashboard
+from pages.manager_dashboard import ManagerDashboard
+from pages.team_leader_dashboard import TeamLeaderDashboard
 
 
 class MainWindow(QMainWindow):
@@ -71,10 +74,20 @@ class MainWindow(QMainWindow):
     def start_session(self, user):
         self.clear_pages()
         self.user = user.copy()
-        dashboard = DASHBOARDS[user["role"]]
-        self.add_page("dashboard", dashboard)
-        for key, label, page_class in PAGES:
-            self.add_page(key, page_class)
+        role = user["role"]
+
+        if role == "employee":
+            dashboard = EmployeeDashboard
+        elif role == "manager":
+            dashboard = ManagerDashboard
+        elif role == "team leader":
+            dashboard = TeamLeaderDashboard
+        else:
+            return 
+        self.add_page("dashboard",dashboard)
+
+        for key,label, page_class in PAGES:
+            self.add_page(key,page_class)
         self.account_label.setText(f"{user['email']}\n{user['role']}")
         self.login_page.clear_form()
         self.root_stack.setCurrentWidget(self.workspace)

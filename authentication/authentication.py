@@ -25,4 +25,9 @@ def check_valid_email(email):
         return False
         
 def password_hash(password):
-    return ph.hash(password)  
+    return ph.hash(password) 
+def verify_password(storedpassword, enteredpassword):
+    try:
+        return ph.verify(storedpassword,enteredpassword)
+    except Exception:
+        return False 
