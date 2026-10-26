@@ -4,8 +4,10 @@ The `db` fixture gives every test its own empty database in a temporary
 folder, so tests never touch database/database.db.
 """
 
-import database.database as database_module
 import pytest
+
+import database.database as database_module
+
 
 @pytest.fixture(scope="session")
 def qt_application():

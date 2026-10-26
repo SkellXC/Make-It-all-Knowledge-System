@@ -1,7 +1,14 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QCheckBox, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QScrollArea, QVBoxLayout, QWidget,
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from authentication.permissions import ADMIN_ROLE

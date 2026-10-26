@@ -1,6 +1,13 @@
-from PySide6.QtWidgets import QVBoxLayout, QWidget,QLabel,QHBoxLayout,QGridLayout,QFrame
-from database.database import get_projects_for_employee
+from PySide6.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
+)
 
+from database.database import get_projects_for_employee
 
 
 class EmployeeDashboard(QWidget):

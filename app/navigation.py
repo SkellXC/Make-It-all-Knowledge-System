@@ -1,23 +1,23 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from authentication.permissions import ADMIN_ROLE, can
 from pages.admin_dashboard import AdminDashboard
 from pages.employee_dashboard import EmployeeDashboard
-from pages.team_leader_dashboard import TeamLeaderDashboard
+from pages.knowledge_page import KnowledgePage
 from pages.manager_dashboard import ManagerDashboard
 from pages.personal_tasks_page import PersonalTasksPage
+from pages.profile_page import ProfilePage
 from pages.project_tasks_page import ProjectTasksPage
 from pages.projects_page import ProjectsPage
-from pages.knowledge_page import KnowledgePage
 from pages.roles_page import RolesPage
-from pages.profile_page import ProfilePage
+from pages.team_leader_dashboard import TeamLeaderDashboard
 
 
 class Page(NamedTuple):
     key: str                          # internal id, used by show_page()
     label: str                        # text on the sidebar button
     widget: type                      # the page class
-    permission: Optional[str] = None  # permission key needed to see it; None = everyone
+    permission: str | None = None  # permission key needed to see it; None = everyone
 
 
 # Dashboard per role name (the names in authentication/permissions.py ROLES).

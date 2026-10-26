@@ -1,6 +1,10 @@
 from PySide6.QtWidgets import (
-    QFrame, QLabel, QVBoxLayout, QWidget,
-    QHBoxLayout, QGridLayout
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
 )
 
 from database.database import get_projects_for_manager

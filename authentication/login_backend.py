@@ -1,5 +1,6 @@
-from database.database import get_employee_by_email, get_permissions_for_role
 from authentication.authentication import verify_password
+from database.database import get_employee_by_email, get_permissions_for_role
+
 
 def login_user(email, password):
     employee = get_employee_by_email(email)

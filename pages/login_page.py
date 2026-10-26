@@ -1,10 +1,15 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget,
+    QFrame,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-#login backend methods imported
-from authentication.login_backend import login_user 
 
+#login backend methods imported
+from authentication.login_backend import login_user
 
 # Demo only: these credentials provide no real authentication or account storage.
 #DEMO_ACCOUNTS = {

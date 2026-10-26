@@ -1,4 +1,5 @@
 import sqlite3
+
 from authentication.authentication import password_hash
 from authentication.permissions import (
     ADMIN_ROLE,
