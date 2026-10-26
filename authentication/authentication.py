@@ -18,7 +18,7 @@ def check_strong_password(password):
     return True
 
 def check_valid_email(email):
-    regex_string = "^[A-Za-z0-9.]+@makeitall.com$"
+    regex_string = "^[A-Za-z0-9.]+@makeitall\.com$"
     if re.match(regex_string,email):
         return True
     else:
