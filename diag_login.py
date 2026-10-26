@@ -1,7 +1,8 @@
 import os
+from database.database import get_employee_by_email, database_connection
 print("cwd:", os.getcwd())
 
-from database.database import get_employee_by_email, database_connection
+
 print("db path:", os.path.abspath(database_connection),
       "| exists:", os.path.exists(database_connection))
 

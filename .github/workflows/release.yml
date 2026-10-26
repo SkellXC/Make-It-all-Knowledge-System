@@ -1,0 +1,46 @@
+# CD = Continuous Delivery: automatically package the app so it can be handed
+# to someone. This builds a Windows version of MakeItAll.
+#
+# It runs only when you push a version tag (for example v1.0.0) or press
+# "Run workflow" by hand in the Actions tab, so it does nothing day to day.
+#
+# NOTE: read docs/CI_GUIDE.md before relying on this. The app currently looks
+# for its database using a relative path, so the packaged app won't start until
+# that is fixed (task F6).
+
+name: Build Windows app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # needed to attach the file to a GitHub Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+      - name: Build the app
+        run: pyinstaller --noconfirm --windowed --name MakeItAll main.py
+      - name: Zip it
+        run: Compress-Archive -Path dist/MakeItAll -DestinationPath MakeItAll-windows.zip
+      - name: Keep the zip as a downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MakeItAll-windows
+          path: MakeItAll-windows.zip
+      - name: Publish a GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" MakeItAll-windows.zip --generate-notes
