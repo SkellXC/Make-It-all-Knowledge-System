@@ -1,4 +1,4 @@
 # Tools for developers and CI only (the app itself doesn't need these).
 # Install with:  pip install -r requirements.txt -r requirements-dev.txt
 pytest>=8
-ruff
+ruff==0.17.2
