@@ -1,6 +1,8 @@
 import datetime as dt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
 from PySide6.QtGui import QFont, QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
+# Importing necessary data using functions from database.py
+from database.database import get_projects_for_employee, get_employee_by_id
 
 class ElidedLabel(QLabel): # Overriding QLabel's paintEvent
     def paintEvent(self, event):
@@ -22,6 +24,61 @@ class ProjectsPage(QWidget):
 
         self.project_overview_grid = QGridLayout()
         self.content_layout.addLayout(self.project_overview_grid)
+
+        # import projects
+        employee = get_employee_by_id(self.user["id"])
+
+        # !-- Role Map --!
+        # retrieve and store employee role in memory using a 'role map' dictionary, good for scalability
+        role_map = {
+            1: "employee",
+            2: "team leader",
+            3: "manager",
+            4: "administrator"
+        }
+        self.current_user_role = role_map.get(employee[6], "employee") # defaults to employee if field is broken
+        employeeProjects = get_projects_for_employee(self.user["id"])
+
+        # instead of spamming if statements to check permissions, permission based access controls (PBAC) will be implemented
+        # widgets do not care who the user is, only what the user is allowed to do
+        # permissions will be mapped to bools that will be used into PyQt's .setVisible()
+
+        # !-- Permission Map --!
+        # permission map is a dictionary of dictionaries
+        role_permissions = {
+            "employee":{
+                "create_project": False,
+                "delete_project": False,
+                "manage_tasks": False,
+                "check_tasks": True,
+                "mark_project_completed": False,
+            },
+            "team leader":{
+                "create_project": False, # Assuming managers delegate projects to team leaders
+                "delete_project": False,
+                "manage_tasks": True,
+                "check_tasks": True,
+                "mark_project_completed": False, # Assuming team leaders need manager's approval to mark project complete
+                    },
+            "manager":{
+                "create_project": True,
+                "delete_project": True,
+                "manage_tasks": True,
+                "check_tasks": True,
+                "mark_project_completed": True,
+            },
+            "administrator":{
+                "create_project": True,
+                "delete_project": True,
+                "manage_tasks": True,
+                "check_tasks": True,
+                "mark_project_completed": True,
+            }
+        }
+
+        # attach PBAC's to employee
+        self.perms = role_permissions[self.current_user_role]
+
 
         # 4 columns and 3 rows with placeholder projects
         for i in range(0, 3):
@@ -108,3 +165,5 @@ class ProjectsPage(QWidget):
                 card_layout.addStretch()
 
                 self.project_overview_grid.addWidget(project_card, i, j)
+
+        # Expanded project page

@@ -7,7 +7,6 @@ from pages.knowledge_page import KnowledgePage
 from pages.manager_dashboard import ManagerDashboard
 from pages.personal_tasks_page import PersonalTasksPage
 from pages.profile_page import ProfilePage
-from pages.project_tasks_page import ProjectTasksPage
 from pages.projects_page import ProjectsPage
 from pages.roles_page import RolesPage
 from pages.team_leader_dashboard import TeamLeaderDashboard
@@ -39,7 +38,6 @@ def dashboard_for(role):
 # The sidebar button and the page are then only created for users who have it.
 PAGES = [
     Page("personal_tasks", "Personal To-do", PersonalTasksPage, "tasks.manage_own"),
-    Page("project_tasks", "Project Tasks", ProjectTasksPage, "projects.view_own"),
     Page("projects", "Projects", ProjectsPage, "projects.view_own"),
     Page("knowledge", "Knowledge Base", KnowledgePage),
     Page("roles", "Roles & Permissions", RolesPage, "roles.manage"),

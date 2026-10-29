@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 
 from authentication.authentication import password_hash
 from authentication.permissions import (
@@ -423,3 +424,67 @@ if __name__ == "__main__":
 # Run the file once update the database
 
 # Run python -m database.database  if you get an import error.                              
+
+
+def personal_task_data(user, action, task_id=None, title="", completed=False):
+    """Read or change only the signed-in employee's personal tasks."""
+    if not can(user, "tasks.manage_own") or user.get("id") is None:
+        raise PermissionError("You cannot manage personal tasks.")
+
+    employee_id = user["id"]
+    title = title.strip()
+
+    if action in ("add", "edit") and not 1 <= len(title) <= 200:
+        raise ValueError("Enter a task between 1 and 200 characters.")
+
+    # closing() closes the connection; the inner 'with' commits or rolls back.
+    with closing(get_database_connection()) as connection:
+        with connection:
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS personal_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    completed INTEGER NOT NULL DEFAULT 0
+                        CHECK (completed IN (0, 1)),
+                    FOREIGN KEY (employee_id) REFERENCES employees(id)
+                        ON DELETE CASCADE
+                )
+            """)
+
+            if action == "load":
+                return connection.execute("""
+                    SELECT id, title, completed
+                    FROM personal_tasks
+                    WHERE employee_id = ?
+                    ORDER BY completed, id DESC
+                """, (employee_id,)).fetchall()
+
+            if action == "add":
+                connection.execute("""
+                    INSERT INTO personal_tasks (employee_id, title)
+                    VALUES (?, ?)
+                """, (employee_id, title))
+
+            elif action == "edit":
+                connection.execute("""
+                    UPDATE personal_tasks
+                    SET title = ?
+                    WHERE id = ? AND employee_id = ?
+                """, (title, task_id, employee_id))
+
+            elif action == "complete":
+                connection.execute("""
+                    UPDATE personal_tasks
+                    SET completed = ?
+                    WHERE id = ? AND employee_id = ?
+                """, (int(completed), task_id, employee_id))
+
+            elif action == "delete":
+                connection.execute("""
+                    DELETE FROM personal_tasks
+                    WHERE id = ? AND employee_id = ?
+                """, (task_id, employee_id))
+
+            else:
+                raise ValueError("Unknown task action.")
