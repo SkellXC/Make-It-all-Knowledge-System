@@ -1,5 +1,6 @@
 import sqlite3
 from contextlib import closing
+from datetime import date, timedelta
 
 from authentication.authentication import password_hash
 from authentication.permissions import (
@@ -69,6 +70,9 @@ def create_tables():
     migrate_employees_to_role_id(connection)
 
     cursor.execute(EMPLOYEES_TABLE.format(name="IF NOT EXISTS employees"))
+
+    # Projects, project members and project tasks (upgrades the old projects table).
+    create_project_tables(connection)
 
 
 
@@ -386,6 +390,227 @@ def get_projects_for_employee(employee_id):
 
     return projects
 
+
+# ---------------------------------------------------------------------------
+# Projects (project_name, description, manager, status, start date, deadline)
+# ---------------------------------------------------------------------------
+# Only two project states for now. Adding one later means editing this table
+# definition (SQLite can't alter a CHECK) and the page's filters.
+PROJECTS_TABLE = """
+    CREATE TABLE {name} (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    manager_id INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('not started', 'in progress')),
+    start_date TEXT NOT NULL,
+    deadline TEXT NOT NULL,
+    CHECK (deadline >= start_date),
+    FOREIGN KEY (manager_id) REFERENCES employees(id)
+    )
+"""
+
+# Same columns as the existing table, so SELECT * and index-based code keep working.
+PROJECT_MEMBERS_TABLE = """
+    CREATE TABLE IF NOT EXISTS project_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+"""
+
+PROJECT_TASKS_TABLE = """
+    CREATE TABLE IF NOT EXISTS project_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    assigned_to INTEGER,
+    due_date TEXT,
+    completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
+    )
+"""
+
+
+def create_project_tables(connection):
+    """Make the project tables match the code. Safe to run on every start.
+
+    Old database (projects without start_date/deadline) -> projects is rebuilt
+    with the new columns and filled with simulated dates, then simulated
+    members and tasks are added for projects that have none.
+    """
+    connection.commit()
+    upgraded = migrate_projects_table(connection)
+
+    connection.execute(PROJECT_MEMBERS_TABLE)
+    # An employee can only be on a project once.
+    connection.execute("""
+    DELETE FROM project_members WHERE id NOT IN
+        (SELECT MIN(id) FROM project_members GROUP BY project_id, employee_id)
+    """)
+    connection.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_project_members_unique
+    ON project_members (project_id, employee_id)
+    """)
+    connection.execute(PROJECT_TASKS_TABLE)
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_project_tasks_project ON project_tasks (project_id)")
+
+    if upgraded:
+        add_simulated_project_data(connection)
+    connection.commit()
+
+
+def migrate_projects_table(connection):
+    """Rebuild the old projects table to add start_date and deadline.
+
+    Same approach as migrate_employees_to_role_id: create the new table, copy
+    the rows across (keeping their ids), drop the old one, rename. Existing
+    rows get simulated dates (in progress: started 10-44 days ago, deadline
+    still ahead; not started: starts in 5-29 days). Anything that isn't
+    'not started' becomes 'in progress', as only those two states exist.
+
+    Returns True if the table was created or rebuilt, False if already up to date.
+    """
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(projects)")]
+    if not columns:
+        connection.execute(PROJECTS_TABLE.format(name="projects"))
+        return False
+    if "start_date" in columns and "deadline" in columns:
+        return False
+
+    connection.execute("PRAGMA foreign_keys = OFF")  # needed to drop a referenced table
+    try:
+        connection.execute("DROP TABLE IF EXISTS projects_new")
+        connection.execute(PROJECTS_TABLE.format(name="projects_new"))
+        connection.execute("""
+        INSERT INTO projects_new
+            (id, project_name, description, manager_id, status, start_date, deadline)
+        SELECT id, project_name, COALESCE(description, ''), manager_id, new_status,
+               start_date, date(start_date, '+' || duration || ' days')
+        FROM (
+            SELECT id, project_name, description, manager_id, new_status,
+                   CASE WHEN new_status = 'in progress'
+                        THEN date('now', '-' || (10 + (id * 7) % 35) || ' days')
+                        ELSE date('now', '+' || (5 + (id * 5) % 25) || ' days')
+                   END AS start_date,
+                   45 + (id * 11) % 60 AS duration
+            FROM (
+                SELECT *, CASE WHEN status = 'not started'
+                               THEN 'not started' ELSE 'in progress' END AS new_status
+                FROM projects
+            )
+        )
+        """)
+        connection.execute("DROP TABLE projects")
+        connection.execute("ALTER TABLE projects_new RENAME TO projects")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.execute("PRAGMA foreign_keys = ON")
+    return True
+
+
+def list_projects_for_user(user):
+    """Projects the signed-in user can see, as dicts for the projects page.
+
+    Keys: id, project_name, description, status, start_date, deadline,
+    manager_id, pending_tasks, total_tasks, progress_percent.
+    Users with projects.view_all see every project; everyone else sees the
+    projects they manage or are a member of.
+    """
+    query = """
+    SELECT p.id, p.project_name, p.description, p.status, p.start_date,
+           p.deadline, p.manager_id,
+           COALESCE(SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END), 0) AS pending_tasks,
+           COUNT(t.id) AS total_tasks
+    FROM projects p
+    LEFT JOIN project_tasks t ON t.project_id = p.id
+    """
+    params = ()
+    if not can(user, "projects.view_all"):
+        employee_id = user.get("id")
+        if employee_id is None:
+            return []
+        query += """
+        WHERE p.manager_id = ?
+           OR p.id IN (SELECT project_id FROM project_members WHERE employee_id = ?)
+        """
+        params = (employee_id, employee_id)
+    query += " GROUP BY p.id ORDER BY p.deadline, p.id"
+
+    with closing(get_database_connection()) as connection:
+        cursor = connection.execute(query, params)
+        names = [column[0] for column in cursor.description]
+        projects = [dict(zip(names, row)) for row in cursor.fetchall()]
+
+    for project in projects:
+        total = project["total_tasks"]
+        done = total - project["pending_tasks"]
+        project["progress_percent"] = round(100 * done / total) if total else 0
+    return projects
+
+
+# Simulated project data (test data only)
+SIMULATED_TASK_TITLES = [
+    "Gather requirements",
+    "Draft project plan",
+    "Assign responsibilities",
+    "Build first version",
+    "Review with stakeholders",
+    "Final testing and handover",
+]
+
+
+def add_simulated_project_data(connection):
+    """Add test members and tasks to every project that doesn't have any.
+
+    Members are picked from employees and team leaders (never the manager or
+    the administrator). In-progress projects get 6 tasks with 1-3 completed;
+    not-started projects get 4 pending tasks. Does not commit.
+    """
+    staff = [row[0] for row in connection.execute("""
+        SELECT e.id FROM employees e JOIN roles r ON r.id = e.role_id
+        WHERE r.name IN ('employee', 'team leader') ORDER BY e.id
+    """)]
+    projects = connection.execute("""
+        SELECT id, manager_id, status, start_date, deadline FROM projects ORDER BY id
+    """).fetchall()
+
+    for project_id, manager_id, status, start_date, deadline in projects:
+        pool = [employee for employee in staff if employee != manager_id]
+        has_members = connection.execute(
+            "SELECT 1 FROM project_members WHERE project_id = ?", (project_id,)).fetchone()
+        if pool and not has_members:
+            offset = project_id % len(pool)
+            for k in range(min(2 + project_id % 2, len(pool))):
+                connection.execute("""
+                    INSERT OR IGNORE INTO project_members (project_id, employee_id)
+                    VALUES (?, ?)
+                """, (project_id, pool[(offset + k) % len(pool)]))
+
+        if connection.execute(
+                "SELECT 1 FROM project_tasks WHERE project_id = ?", (project_id,)).fetchone():
+            continue
+
+        team = [row[0] for row in connection.execute(
+            "SELECT employee_id FROM project_members WHERE project_id = ? ORDER BY id",
+            (project_id,))] or [manager_id]
+        task_count, done_count = (6, 1 + project_id % 3) if status == "in progress" else (4, 0)
+        first = date.fromisoformat(start_date)
+        span = (date.fromisoformat(deadline) - first).days
+        for i in range(task_count):
+            due = first + timedelta(days=span * (i + 1) // task_count)
+            connection.execute("""
+                INSERT INTO project_tasks (project_id, title, assigned_to, due_date, completed)
+                VALUES (?, ?, ?, ?, ?)
+            """, (project_id, SIMULATED_TASK_TITLES[i], team[i % len(team)],
+                  due.isoformat(), int(i < done_count)))
 
 
 
