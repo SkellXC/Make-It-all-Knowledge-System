@@ -2,7 +2,7 @@ import datetime as dt
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
 from PySide6.QtGui import QFont, QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
 # Importing necessary data using functions from database.py
-from database import get_projects_for_manager, get_projects_for_employee, get_employee_by_id
+from database.database import get_projects_for_employee, get_employee_by_id
 
 class ElidedLabel(QLabel): # Overriding QLabel's paintEvent
     def paintEvent(self, event):
