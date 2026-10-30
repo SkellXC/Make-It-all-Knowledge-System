@@ -651,65 +651,101 @@ if __name__ == "__main__":
 # Run python -m database.database  if you get an import error.                              
 
 
-def personal_task_data(user, action, task_id=None, title="", completed=False):
-    """Read or change only the signed-in employee's personal tasks."""
+TASK_PRIORITIES = ("low", "normal", "high")
+
+
+def create_personal_tasks_table(connection):
+    """Create the table, or add the new fields without removing saved tasks."""
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS personal_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+            priority TEXT NOT NULL DEFAULT 'normal'
+                CHECK (priority IN ('low', 'normal', 'high')),
+            due_date TEXT,
+            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+        )
+    """)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(personal_tasks)")}
+    if "priority" not in columns:
+        connection.execute("""
+            ALTER TABLE personal_tasks ADD COLUMN priority TEXT NOT NULL
+            DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high'))
+        """)
+    if "due_date" not in columns:
+        connection.execute("ALTER TABLE personal_tasks ADD COLUMN due_date TEXT")
+
+
+def personal_task_data(user, action, task_id=None, title="", completed=False,
+                       priority="normal", due_date=None):
+    """Manage the signed-in employee's tasks. Dates use YYYY-MM-DD or None.
+
+    'load' returns (id, title, completed, priority, due_date) for each task.
+    """
     if not can(user, "tasks.manage_own") or user.get("id") is None:
         raise PermissionError("You cannot manage personal tasks.")
 
     employee_id = user["id"]
     title = title.strip()
 
-    if action in ("add", "edit") and not 1 <= len(title) <= 200:
-        raise ValueError("Enter a task between 1 and 200 characters.")
+    if action not in ("load", "add", "edit", "complete", "delete"):
+        raise ValueError("Unknown task action.")
+
+    if action in ("add", "edit"):
+        if not 1 <= len(title) <= 200:
+            raise ValueError("Enter a task between 1 and 200 characters.")
+        if priority not in TASK_PRIORITIES:
+            raise ValueError("Choose Low, Normal or High priority.")
+        if due_date is not None:
+            try:
+                valid_date = date.fromisoformat(due_date)
+            except (TypeError, ValueError):
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.") from None
+            if valid_date.isoformat() != due_date:
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.")
 
     # closing() closes the connection; the inner 'with' commits or rolls back.
     with closing(get_database_connection()) as connection:
         with connection:
-            connection.execute("""
-                CREATE TABLE IF NOT EXISTS personal_tasks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_id INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    completed INTEGER NOT NULL DEFAULT 0
-                        CHECK (completed IN (0, 1)),
-                    FOREIGN KEY (employee_id) REFERENCES employees(id)
-                        ON DELETE CASCADE
-                )
-            """)
+            create_personal_tasks_table(connection)
 
             if action == "load":
                 return connection.execute("""
-                    SELECT id, title, completed
+                    SELECT id, title, completed, priority, due_date
                     FROM personal_tasks
                     WHERE employee_id = ?
-                    ORDER BY completed, id DESC
+                    ORDER BY completed, due_date IS NULL, due_date,
+                        CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+                        id DESC
                 """, (employee_id,)).fetchall()
 
             if action == "add":
                 connection.execute("""
-                    INSERT INTO personal_tasks (employee_id, title)
-                    VALUES (?, ?)
-                """, (employee_id, title))
+                    INSERT INTO personal_tasks (employee_id, title, priority, due_date)
+                    VALUES (?, ?, ?, ?)
+                """, (employee_id, title, priority, due_date))
 
             elif action == "edit":
-                connection.execute("""
+                cursor = connection.execute("""
                     UPDATE personal_tasks
-                    SET title = ?
+                    SET title = ?, priority = ?, due_date = ?
                     WHERE id = ? AND employee_id = ?
-                """, (title, task_id, employee_id))
+                """, (title, priority, due_date, task_id, employee_id))
 
             elif action == "complete":
-                connection.execute("""
+                cursor = connection.execute("""
                     UPDATE personal_tasks
                     SET completed = ?
                     WHERE id = ? AND employee_id = ?
                 """, (int(completed), task_id, employee_id))
 
             elif action == "delete":
-                connection.execute("""
+                cursor = connection.execute("""
                     DELETE FROM personal_tasks
                     WHERE id = ? AND employee_id = ?
                 """, (task_id, employee_id))
 
-            else:
-                raise ValueError("Unknown task action.")
+            if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
+                raise ValueError("This task is no longer available. Refresh and try again.")
