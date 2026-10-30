@@ -4,6 +4,8 @@ The `db` fixture gives every test its own empty database in a temporary
 folder, so tests never touch database/database.db.
 """
 
+from datetime import date, timedelta
+
 import pytest
 
 import database.database as database_module
@@ -63,10 +65,12 @@ def accounts(db):
         result[role] = (email, PASSWORD)
 
     connection = db.get_database_connection()
+    today = date.today()
     cursor = connection.execute(
-        "INSERT INTO projects (project_name, description, manager_id, status) "
-        "VALUES (?, ?, ?, ?)",
-        ("Website", "Rebuild the company website", ids["manager"], "in progress"),
+        "INSERT INTO projects (project_name, description, manager_id, status, start_date, deadline) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        ("Website", "Rebuild the company website", ids["manager"], "in progress",
+         today.isoformat(), (today + timedelta(days=30)).isoformat()),
     )
     connection.execute(
         "INSERT INTO project_members (project_id, employee_id) VALUES (?, ?)",

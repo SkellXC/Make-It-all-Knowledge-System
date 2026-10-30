@@ -1,8 +1,7 @@
-import datetime as dt
 from PySide6.QtWidgets import QVBoxLayout, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
-from PySide6.QtGui import QFont, QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
+from PySide6.QtGui import QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
 # Importing necessary data using functions from database.py
-from database.database import list_projects_for_user, get_employee_by_id, get_projects_for_employee, get_projects_for_manager
+from database.database import list_projects_for_user, get_employee_by_id, get_projects_for_employee
 
 MAX_ROWS = 3
 CARD_STYLE = """                    
@@ -115,7 +114,8 @@ class CollapsiblePanel(QWidget):
     def addWidget(self, item):
         if isinstance(item, QLayout):
             self.content_layout.addLayout(item)
-        else: self.content_layout.addWidget(item)
+        else:
+            self.content_layout.addWidget(item)
 
     def addLayout(self, layout):
         self.content_layout.addLayout(layout)

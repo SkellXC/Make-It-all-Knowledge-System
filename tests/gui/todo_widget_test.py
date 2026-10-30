@@ -2,11 +2,32 @@
 
 from datetime import date, timedelta
 
-from PySide6.QtCore import QDate
+import pytest
+from PySide6.QtCore import QDate, QEvent
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QPushButton
 
 from app.todo_widget import TaskForm, create_todo_widget
 from authentication.login_backend import login_user
+
+
+@pytest.fixture()
+def todo_factory(qt_application):
+    """Dispose of every test widget before Qt's application shuts down."""
+    widgets = []
+
+    def make_widget(*args, **kwargs):
+        widget = create_todo_widget(*args, **kwargs)
+        widgets.append(widget)
+        return widget
+
+    yield make_widget
+
+    qt_application.processEvents()
+    for widget in widgets:
+        widget.close()
+        widget.deleteLater()
+    qt_application.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qt_application.processEvents()
 
 
 def task_ids(widget):
@@ -15,10 +36,10 @@ def task_ids(widget):
             if widget.rows_layout.itemAt(i).widget().property("task_id") is not None]
 
 
-def test_add_edit_complete_and_restore_through_the_widget(qt_application, db, monkeypatch):
+def test_add_edit_complete_and_restore_through_the_widget(todo_factory, db, monkeypatch):
     db.add_employee("Alex", "Smith", "alex@makeitall.com", "alex", "Password1!")
     user = login_user("alex@makeitall.com", "Password1!")
-    widget = create_todo_widget(user)
+    widget = todo_factory(user)
     changes = []
     widget.tasks_changed.connect(lambda: changes.append(True))
     widget.show_task_entry()
@@ -49,13 +70,11 @@ def test_add_edit_complete_and_restore_through_the_widget(qt_application, db, mo
     widget.rows_layout.itemAt(0).widget().findChild(QPushButton, "taskCheck").click()
     assert db.personal_task_data(user, "load")[0][2] == 0
     assert len(changes) == 4
-    reopened = create_todo_widget(user)
+    reopened = todo_factory(user)
     assert task_ids(reopened) == [task[0]]
-    widget.close()
-    reopened.close()
 
 
-def test_alternative_backend_sorting_and_overdue_display(qt_application):
+def test_alternative_backend_sorting_and_overdue_display(todo_factory):
     today = date.today()
     rows = [
         (1, "Later, high", 0, "high", (today + timedelta(days=5)).isoformat()),
@@ -71,7 +90,7 @@ def test_alternative_backend_sorting_and_overdue_display(qt_application):
         calls.append((acting_user, action, values))
         return rows if action == "load" else None
 
-    widget = create_todo_widget(user, task_data=project_tasks,
+    widget = todo_factory(user, task_data=project_tasks,
                                 title="Project tasks", subtitle="Paper sales")
     assert task_ids(widget) == [3, 2, 1, 4]
     assert widget.active_button.text() == "Active  4"
@@ -87,12 +106,10 @@ def test_alternative_backend_sorting_and_overdue_display(qt_application):
     widget.save_change("edit", task_id=1, title="Updated", priority="low", due_date=None)
     assert calls[-2] == (user, "edit", {"task_id": 1, "title": "Updated", "priority": "low", "due_date": None})
     assert all(call[0] is user for call in calls)
-    widget.close()
 
 
-def test_permission_failure_is_shown_without_an_add_form(qt_application, db):
-    widget = create_todo_widget(None)
+def test_permission_failure_is_shown_without_an_add_form(todo_factory, db):
+    widget = todo_factory(None)
     assert "cannot manage" in widget.message.text()
     assert widget.add_link.isHidden()
     assert widget.entry.isHidden()
-    widget.close()

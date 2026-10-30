@@ -194,6 +194,10 @@ class TodoWidget(QWidget):
         self.user = user
         self.task_data = task_data
         self.show_completed = False
+        # A timer owned by this widget is cancelled when the widget is deleted.
+        self.entry_scroll_timer = QTimer(self)
+        self.entry_scroll_timer.setSingleShot(True)
+        self.entry_scroll_timer.timeout.connect(self.scroll_to_entry)
         self.setup_ui(title, subtitle)
         self.refresh_tasks()
 
@@ -443,7 +447,7 @@ class TodoWidget(QWidget):
         self.add_link.hide()
         self.form.title_input.setFocus()
         # Wait for the form's new size before scrolling it into view.
-        QTimer.singleShot(0, self.scroll_to_entry)
+        self.entry_scroll_timer.start(0)
 
     def scroll_to_entry(self):
         self.scroll_area.ensureWidgetVisible(self.entry, 0, 12)
