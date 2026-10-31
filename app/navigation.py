@@ -8,6 +8,7 @@ from pages.manager_dashboard import ManagerDashboard
 from pages.personal_tasks_page import PersonalTasksPage
 from pages.profile_page import ProfilePage
 from pages.projects_page import ProjectsPage
+from pages.expanded_project_page import ExpandedProjectsPage
 from pages.roles_page import RolesPage
 from pages.team_leader_dashboard import TeamLeaderDashboard
 
@@ -51,3 +52,22 @@ def visible_pages(user):
         page for page in PAGES
         if page.permission is None or can(user, page.permission)
     ]
+
+# project view switching
+def setup_project_viewswitching(self, projects_page_instance):
+    """Called once when projects page is created to listen for signals"""
+    self.projects_page = projects_page_instance
+
+    self.projects_page.projectselected.connect(self.show_expanded_project)
+
+def show_expanded_project(self, project_data):
+    """Swap to expanded project view"""
+    self.expanded_page = ExpandedProjectsPage(
+        user = self.user,
+        project_data=project_data,
+        user_perms=self.projects_page.perms
+    )
+
+    self.expanded_page.back_button.clicked.connect(self.show_project_overview)
+
+    

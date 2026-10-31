@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
 
 from app.navigation import PAGES, dashboard_for, visible_pages
 from pages.login_page import LoginPage
+from pages.projects_page import ProjectsPage
+from pages.expanded_project_page import ExpandedProjectsPage
 
 
 class MainWindow(QMainWindow):
@@ -97,6 +99,10 @@ class MainWindow(QMainWindow):
         
     def add_page(self, key, page_class):
         page = page_class(user=self.user.copy())
+
+        if (key == "projects"):
+            self.setup_project_viewswitching(page)
+        
         self.pages[key] = page
         self.page_stack.addWidget(page)
 
@@ -119,3 +125,33 @@ class MainWindow(QMainWindow):
         if key not in self.pages:
             return  # not available to this user
         self.page_stack.setCurrentWidget(self.pages[key])
+
+        # project view switching
+    def setup_project_viewswitching(self, projects_page_instance):
+        """Called once when projects page is created to listen for signals"""
+        self.projects_page = projects_page_instance
+
+        self.projects_page.project_selected.connect(self.show_expanded_project)
+
+    def show_expanded_project(self, project_data):
+        """Swap to expanded project view"""
+        self.expanded_page = ExpandedProjectsPage(
+            user = self.user,
+            project_data=project_data,
+            user_perms=self.projects_page.perms
+        )
+
+        self.expanded_page.back_button.clicked.connect(self.show_project_overview)
+
+        self.page_stack.addWidget(self.expanded_page)
+        self.page_stack.setCurrentWidget(self.expanded_page)
+
+    def show_project_overview(self):
+        """Returns to project overiview and removes expanded page"""
+        self.page_stack.setCurrentWidget(self.projects_page)
+
+        self.page_stack.removeWidget(self.expanded_page)
+        self.expanded_page.deleteLater()
+        self.expanded_page = None
+
+    
