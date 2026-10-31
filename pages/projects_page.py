@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QVBoxLayout, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
+from PySide6.QtWidgets import QVBoxLayout, QScrollArea, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
 from PySide6.QtGui import QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
 # Importing necessary data using functions from database.py
 from database.database import list_projects_for_user, get_employee_by_id, get_projects_for_employee
@@ -170,7 +170,25 @@ class ProjectsPage(QWidget):
         return panel
 
     def setup_ui(self):
-        self.content_layout = QVBoxLayout(self)
+        # hierarchy: self -> scroll layout -> content -> content layout -> widgets
+        # outer page container to hold scroll bar
+        scroll_layout = QVBoxLayout(self)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.viewport().setAutoFillBackground(False)
+        scroll_layout.addWidget(scroll)
+
+        # put page contents into scroll area
+        content = QWidget()
+        content.setAutoFillBackground(False)
+        scroll.setWidget(content)
+
+        self.content_layout = QVBoxLayout(content) # content layout from content
         self.content_layout.setContentsMargins(28, 26, 28, 24)
 
         # import projects
