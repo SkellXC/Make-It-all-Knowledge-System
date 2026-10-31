@@ -153,7 +153,8 @@ def migrate_employees_to_role_id(connection):
 
 
 def get_all_roles():
-    """[(id, name, icon, is_locked), ...] - for the admin screen."""
+    """[(id, name, icon, is_locked), ...]
+    for the admin screen and displaying role on expanded project view."""
     connection = get_database_connection()
     rows = connection.execute(
         "SELECT id, name, icon, is_locked FROM roles ORDER BY id"
@@ -360,6 +361,26 @@ def remove_employee(employee_id):
     finally:
         connection.close()
 
+def get_project_members(project_id):
+    """
+    Returns a dictionary of employees on a project
+    """
+    with closing(get_database_connection()) as connection:
+        connection.row_factory = sqlite3.Row
+
+        cursor = connection.execute("""
+            SELECT e.id, e.first_name, e.second_name, e.email, e.role_id
+            FROM employees e
+            JOIN project_members pm ON e.id = pm.employee_id
+            WHERE pm.project_id = ?
+        """, (project_id,))
+
+        members_dict = {}
+        for row in cursor.fetchall():
+            members_dict[row["id"]] = dict(row)
+
+        return members_dict
+
 def get_projects_for_manager(manager_id):
     connection = get_database_connection()
     cursor = connection.cursor()
@@ -389,7 +410,6 @@ def get_projects_for_employee(employee_id):
     connection.close()
 
     return projects
-
 
 # ---------------------------------------------------------------------------
 # Projects (project_name, description, manager, status, start date, deadline)
@@ -759,7 +779,6 @@ def create_project_tasks_table(connection):
         CREATE TABLE IF NOT EXISTS project_tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             project_id INTEGER NOT NULL,
-            assigned_to INTEGER,
             title TEXT NOT NULL,
             description TEXT,
             completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
@@ -769,6 +788,15 @@ def create_project_tasks_table(connection):
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
             FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
         )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS task_assignments (
+            task_id INTEGER NOT NULL,
+            employee_id INTEGER NOT NULL,
+            PRIMARY KEY (task_id, employee_id),
+            FOREIGN KEY (task_id) REFERENCES project_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+            )
     """)
     columns = {row[1] for row in connection.execute("PRAGMA table_info(project_tasks)")}
     if "priority" not in columns:
@@ -781,13 +809,14 @@ def create_project_tasks_table(connection):
     if "description" not in columns:
         connection.execute("ALTER TABLE project_tasks ADD COLUMN description TEXT")
 
-def project_task_data(user, action, project_id=None, task_id=None, title="", completed=False,
+def project_task_data(user, action, project_id=None, user_perms=None, task_id=None, title="", completed=False,
                        priority="normal", due_date=None, assigned_to=None):
-    """Manage for a project. Dates use YYYY-MM-DD or None.
+    """Manage for a project using injected UI permissions. Dates use YYYY-MM-DD or None.
+    Verify perms with dictionary lookups.
 
     load returns (id, title, completed, priority, due_date) for each task.
     """
-    if not can(user, "projects.view") or user.get("id") is None:
+    if not user_perms.get("check_tasks", False):
         raise PermissionError("You cannot access project tasks.")
 
     title = title.strip()
@@ -823,20 +852,31 @@ def project_task_data(user, action, project_id=None, task_id=None, title="", com
                 """, (project_id,)).fetchall()
 
             if action == "add":
-                if not can(user, "projects.manage_tasks"):
+                if not user_perms.get("manage_tasks", False):
                     raise PermissionError("You do not have permission to add project tasks.")
 
-                connection.execute("""
+                cursor = connection.execute("""
                     INSERT INTO project_tasks (project_id, title, priority, due_date)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?)
                 """, (project_id, title, priority, due_date))
 
+                new_task_id = cursor.lastrowid
+
+                if assigned_to and isinstance(assigned_to, list):
+                    for emp_id in assigned_to:
+                        connection.execute("""
+                            INSERT INTO task_assignments (task_id, employee_id)
+                            VALUES (?, ?)
+                        """, (new_task_id, emp_id))
+
             elif action == "edit":
+                if not user_perms.get("manage_tasks", False):
+                    raise PermissionError("You do not have permission to edit project tasks.")
                 cursor = connection.execute("""
                     UPDATE project_tasks
-                    SET title = ?, priority = ?, due_date = ?, assigned_to = ?
+                    SET title = ?, priority = ?, due_date = ?,
                     WHERE id = ? AND project_id = ?
-                """, (title, priority, due_date, assigned_to, task_id, project_id))
+                """, (title, priority, due_date, task_id, project_id))
 
             elif action == "complete":
                 cursor = connection.execute("""
@@ -846,7 +886,7 @@ def project_task_data(user, action, project_id=None, task_id=None, title="", com
                 """, (int(completed), task_id, project_id))
 
             elif action == "delete":
-                if not can(user, "projects.manage_tasks"):
+                if not user_perms.get("manage_tasks", False):
                     raise PermissionError("You do not have permission to delete project tasks.")
 
                 cursor = connection.execute("""
