@@ -122,9 +122,9 @@ QCalendarWidget QAbstractItemView { background: white; color: #233b53;
     selection-background-color: #294e6e; selection-color: white; }
 """
 
-# can_manage used for project tasks permission checking, personal tasks unaffected
+
 def create_todo_widget(user, parent=None, *, task_data=personal_task_data,
-                       title="Personal To-do", subtitle="Private to you", can_manage=True):
+                       title="Personal To-do", subtitle="Private to you"):
     """Return the entire to-do interface, ready to add to any Qt layout.
 
     task_data handles load/add/edit/complete/delete like personal_task_data().
@@ -132,7 +132,7 @@ def create_todo_widget(user, parent=None, *, task_data=personal_task_data,
     Dates use YYYY-MM-DD or None. The backend must check access itself.
     Pass a project backend to display project tasks instead of personal tasks.
     """
-    return TodoWidget(user, task_data, title, subtitle, parent, can_manage)
+    return TodoWidget(user, task_data, title, subtitle, parent)
 
 
 class TaskForm(QWidget):
@@ -189,11 +189,10 @@ class TodoWidget(QWidget):
     # A dashboard can listen to this to refresh its totals after a change.
     tasks_changed = Signal()
 
-    def __init__(self, user, task_data, title, subtitle, parent=None, can_manage=True):
+    def __init__(self, user, task_data, title, subtitle, parent=None):
         super().__init__(parent)
         self.user = user
         self.task_data = task_data
-        self.can_manage = can_manage
         self.show_completed = False
         # A timer owned by this widget is cancelled when the widget is deleted.
         self.entry_scroll_timer = QTimer(self)
@@ -364,7 +363,7 @@ class TodoWidget(QWidget):
             else "No active tasks. Add one below."
         )
         self.empty_label.setVisible(not tasks)
-        self.add_link.setVisible(self.can_manage and not self.show_completed and self.entry.isHidden())
+        self.add_link.setVisible(not self.show_completed and self.entry.isHidden())
 
     def add_section(self, title, overdue=False):
         label = QLabel(title)
