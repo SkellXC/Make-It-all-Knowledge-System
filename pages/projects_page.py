@@ -179,13 +179,15 @@ class ProjectsPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.setStyleSheet(f"QScrollArea {{ background: #f3f5f8; border: none; }}")
         scroll.viewport().setAutoFillBackground(False)
         scroll_layout.addWidget(scroll)
 
         # put page contents into scroll area
         content = QWidget()
         content.setAutoFillBackground(False)
+        content.setObjectName("projects_content")
+        content.setStyleSheet(f"#projects_content {{ background: #f3f5f8; }}")
         scroll.setWidget(content)
 
         self.content_layout = QVBoxLayout(content) # content layout from content
