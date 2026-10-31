@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
     QWidget,
+    QScrollArea
 )
+from PySide6.QtGui import Qt
 
 from database.database import get_projects_for_employee
 
@@ -17,7 +19,29 @@ class EmployeeDashboard(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
-        self.content_layout = QVBoxLayout(self)
+        # scroll bar
+        # outer page container to hold scroll bar
+        scroll_layout = QVBoxLayout(self)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(f"QScrollArea {{ background: #f3f5f8; border: none; }}")
+        scroll.viewport().setAutoFillBackground(False)
+        scroll_layout.addWidget(scroll)
+
+        # put page contents into scroll area
+        content = QWidget()
+        content.setAutoFillBackground(False)
+        content.setObjectName("employee_dashboard_content")
+        content.setStyleSheet(f"#employee_dashboard_content {{ background: #f3f5f8; }}")
+        scroll.setWidget(content)
+
+
+        # dashboard
+        self.content_layout = QVBoxLayout(content)
         self.content_layout.setContentsMargins(28, 26, 28, 24)
         self.content_layout.setSpacing(20)
 
