@@ -653,6 +653,7 @@ if __name__ == "__main__":
 
 TASK_PRIORITIES = ("low", "normal", "high")
 
+# todo task functions
 
 def create_personal_tasks_table(connection):
     """Create the table, or add the new fields without removing saved tasks."""
@@ -746,6 +747,112 @@ def personal_task_data(user, action, task_id=None, title="", completed=False,
                     DELETE FROM personal_tasks
                     WHERE id = ? AND employee_id = ?
                 """, (task_id, employee_id))
+
+            if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
+                raise ValueError("This task is no longer available. Refresh and try again.")
+
+# project task functions
+
+def create_project_tasks_table(connection):
+    """Create the table, or add the new fields without removing saved tasks."""
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS project_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            assigned_to INTEGER,
+            title TEXT NOT NULL,
+            description TEXT,
+            completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+            priority TEXT NOT NULL DEFAULT 'normal'
+                CHECK (priority IN ('low', 'normal', 'high')),
+            due_date TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
+        )
+    """)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(project_tasks)")}
+    if "priority" not in columns:
+        connection.execute("""
+            ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL
+            DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high'))
+        """)
+    if "due_date" not in columns:
+        connection.execute("ALTER TABLE project_tasks ADD COLUMN due_date TEXT")
+    if "description" not in columns:
+        connection.execute("ALTER TABLE project_tasks ADD COLUMN description TEXT")
+
+def project_task_data(user, action, project_id=None, task_id=None, title="", completed=False,
+                       priority="normal", due_date=None, assigned_to=None):
+    """Manage for a project. Dates use YYYY-MM-DD or None.
+
+    load returns (id, title, completed, priority, due_date) for each task.
+    """
+    if not can(user, "projects.view") or user.get("id") is None:
+        raise PermissionError("You cannot access project tasks.")
+
+    title = title.strip()
+
+    if action not in ("load", "add", "edit", "complete", "delete"):
+        raise ValueError("Unknown task action.")
+
+    if action in ("add", "edit"):
+        if not 1 <= len(title) <= 200:
+            raise ValueError("Enter a task between 1 and 200 characters.")
+        if priority not in TASK_PRIORITIES:
+            raise ValueError("Choose Low, Normal or High priority.")
+        if due_date is not None:
+            try:
+                valid_date = date.fromisoformat(due_date)
+            except (TypeError, ValueError):
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.") from None
+            if valid_date.isoformat() != due_date:
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.")
+
+    with closing(get_database_connection()) as connection:
+        with connection:
+            create_project_tasks_table(connection)
+
+            if action == "load":
+                return connection.execute("""
+                    SELECT id, title, completed, priority, due_date
+                    FROM project_tasks
+                    WHERE project_id = ?
+                    ORDER BY completed, due_date IS NULL, due_date,
+                        CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+                        id DESC
+                """, (project_id,)).fetchall()
+
+            if action == "add":
+                if not can(user, "projects.manage_tasks"):
+                    raise PermissionError("You do not have permission to add project tasks.")
+
+                connection.execute("""
+                    INSERT INTO project_tasks (project_id, title, priority, due_date)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (project_id, title, priority, due_date))
+
+            elif action == "edit":
+                cursor = connection.execute("""
+                    UPDATE project_tasks
+                    SET title = ?, priority = ?, due_date = ?, assigned_to = ?
+                    WHERE id = ? AND project_id = ?
+                """, (title, priority, due_date, assigned_to, task_id, project_id))
+
+            elif action == "complete":
+                cursor = connection.execute("""
+                    UPDATE project_tasks
+                    SET completed = ?
+                    WHERE id = ? AND project_id = ?
+                """, (int(completed), task_id, project_id))
+
+            elif action == "delete":
+                if not can(user, "projects.manage_tasks"):
+                    raise PermissionError("You do not have permission to delete project tasks.")
+
+                cursor = connection.execute("""
+                    DELETE FROM project_tasks
+                    WHERE id = ? AND project_id = ?
+                """, (task_id, project_id))
 
             if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
                 raise ValueError("This task is no longer available. Refresh and try again.")
