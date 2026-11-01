@@ -447,6 +447,55 @@ def get_tasks_for_user(user):
         create_personal_tasks_table(connection)  # table is created lazily
         return connection.execute(query, params).fetchall()
 
+def get_task_counts_for_team_leader(employee_id):
+    """Task progress for every project this team leader is a member of.
+ 
+    Returns rows of (project_id, project_name, status, deadline, todo, done),
+    soonest deadline first. A project with no tasks gives todo = 0 and done = 0.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT p.id, p.project_name, p.status, p.deadline,
+                   COALESCE(SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END), 0) AS todo,
+                   COALESCE(SUM(CASE WHEN t.completed = 1 THEN 1 ELSE 0 END), 0) AS done
+            FROM projects p
+            JOIN project_members m
+                ON m.project_id = p.id AND m.employee_id = ?
+            LEFT JOIN project_tasks t ON t.project_id = p.id
+            GROUP BY p.id
+            ORDER BY p.deadline, p.id
+            """,
+            (employee_id,),
+        ).fetchall()
+ 
+def get_team_progress_for_team_leader(employee_id):
+    """Who is on each of this team leader's projects, and how their tasks are going.
+ 
+    Returns rows of (project_id, employee_id, first_name, second_name,
+    assigned, completed): one row per project member, for every project the
+    team leader is a member of. `assigned` counts tasks assigned to that person
+    on that project, `completed` counts how many of those are done.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT m.project_id, e.id, e.first_name, e.second_name,
+                   COUNT(t.id) AS assigned,
+                   COALESCE(SUM(t.completed), 0) AS completed
+            FROM project_members m
+            JOIN employees e ON e.id = m.employee_id
+            LEFT JOIN project_tasks t
+                ON t.project_id = m.project_id AND t.assigned_to = e.id
+            WHERE m.project_id IN
+                (SELECT project_id FROM project_members WHERE employee_id = ?)
+            GROUP BY m.project_id, e.id
+            ORDER BY m.project_id, e.first_name, e.second_name
+            """,
+            (employee_id,),
+        ).fetchall()
+ 
+
 # ---------------------------------------------------------------------------
 # Projects (project_name, description, manager, status, start date, deadline)
 # ---------------------------------------------------------------------------
