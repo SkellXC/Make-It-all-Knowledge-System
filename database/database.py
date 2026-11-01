@@ -3,6 +3,7 @@ from contextlib import closing
 from datetime import date, timedelta
 
 from authentication.authentication import password_hash
+from database.knowledge_schema import create_knowledge_tables
 from authentication.permissions import (
     ADMIN_ROLE,
     DEFAULT_ROLE_PERMISSIONS,
@@ -73,6 +74,7 @@ def create_tables():
 
     # Projects, project members and project tasks (upgrades the old projects table).
     create_project_tables(connection)
+    create_knowledge_tables(connection)
 
 
 

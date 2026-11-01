@@ -119,4 +119,115 @@ QLabel#lockedNote { color: #617086; }
 QLabel#rolesMessage { color: #a3313c; }
 QCheckBox { spacing: 10px; padding: 5px 0; }
 QCheckBox:disabled { color: #8495ac; }
+/* Shared Knowledge Base */
+QWidget#knowledgePage { font-family: 'Segoe UI'; }
+QWidget#knowledgePage QLabel#knowledgeTitle {
+    font-size: 25px;
+    font-weight: 600;
+}
+QLabel#knowledgeSection { font-size: 17px; font-weight: 600; }
+QLabel#knowledgePostTitle { font-size: 20px; font-weight: 600; color: #202d3d; }
+QLabel#knowledgeUsername { font-size: 13px; font-weight: 600; }
+QLabel#knowledgeAvatar { color: white; font-size: 12px; font-weight: 600; border-radius: 18px; }
+QLabel#knowledgeHint { color: #617086; }
+QLabel#knowledgeError { color: #a3313c; }
+QFrame#knowledgePostCard, QFrame#knowledgeReply {
+    background: white;
+    border: 1px solid #d9dee7;
+    border-radius: 16px;
+}
+QFrame#knowledgePostCard QLabel, QFrame#knowledgeReply QLabel { background: transparent; }
+QScrollArea#knowledgeScroll { background: transparent; border: none; }
+QScrollArea#knowledgeScroll > QWidget > QWidget { background: transparent; }
+QWidget#knowledgePage QListWidget, QWidget#knowledgePage QTextEdit,
+QDialog#knowledgeDialog QTextEdit, QDialog#knowledgeDialog QComboBox {
+    background: white;
+    border: 1px solid #d9dee7;
+    border-radius: 6px;
+    padding: 6px;
+    selection-background-color: #e2ebf8;
+    selection-color: #243247;
+}
+QWidget#knowledgePage QListWidget::item { padding: 9px; }
+QWidget#knowledgePage QListWidget::item:selected { background: #e2ebf8; }
+QWidget#knowledgePage QPushButton, QDialog#knowledgeDialog QPushButton {
+    background: white;
+    color: #365a8d;
+    border: 1px solid #ccd6e4;
+    border-radius: 6px;
+    padding: 9px 12px;
+}
+QWidget#knowledgePage QPushButton:hover, QDialog#knowledgeDialog QPushButton:hover {
+    background: #edf2f9;
+}
+QWidget#knowledgePage QPushButton#knowledgePrimary {
+    background: #476da6;
+    color: white;
+    border-color: #476da6;
+}
+QWidget#knowledgePage QPushButton:disabled { background: #e9edf3; color: #8495ac; }
+QWidget#knowledgePage QPushButton#knowledgeLink {
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    text-align: left;
+}
+QWidget#knowledgePage QPushButton#knowledgeLink:hover { color: #243c5b; }
+QFrame#knowledgeCategorySwitch { background: #e8edf3; border-radius: 12px; }
+QWidget#knowledgePage QPushButton#knowledgeCategory {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 9px 18px;
+    color: #617086;
+}
+QWidget#knowledgePage QPushButton#knowledgeCategory:checked {
+    background: white;
+    border-color: #d9e1eb;
+    color: #284b7a;
+    font-weight: 600;
+}
+QWidget#knowledgePage QLabel#knowledgeBadge {
+    background: #eaf1fc;
+    color: #355e95;
+    border-radius: 8px;
+    padding: 4px 9px;
+    font-size: 12px;
+}
+QWidget#knowledgePage QLabel#knowledgeBadge[category="non-technical"] {
+    background: #e9f4ef;
+    color: #35735a;
+}
+QWidget#knowledgePage QPushButton#knowledgeAction {
+    background: #eef1f5;
+    border: 1px solid transparent;
+    border-radius: 17px;
+    color: #46556a;
+    padding: 7px 14px;
+    font-weight: 600;
+}
+QWidget#knowledgePage QPushButton#knowledgeAction:hover { background: #e2e8f0; }
+QWidget#knowledgePage QPushButton#knowledgeAction:checked {
+    background: #fff0ee;
+    color: #bc5146;
+}
+QWidget#knowledgePage QTextEdit#knowledgeBody {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+QWidget#knowledgePage QScrollBar:vertical {
+    background: #f3f5f8;
+    width: 8px;
+    border: none;
+}
+QWidget#knowledgePage QScrollBar::handle:vertical {
+    background: #c5cfdc;
+    border-radius: 4px;
+    min-height: 24px;
+}
+QWidget#knowledgePage QScrollBar::add-line:vertical,
+QWidget#knowledgePage QScrollBar::sub-line:vertical { height: 0; }
+QWidget#knowledgePage QScrollBar::add-page:vertical,
+QWidget#knowledgePage QScrollBar::sub-page:vertical { background: transparent; }
 """
