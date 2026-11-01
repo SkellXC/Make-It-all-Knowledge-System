@@ -62,6 +62,13 @@ def create_tables():
     FOREIGN KEY (permission_id) REFERENCES permissions(id)
     )
     """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS profile_pictures ( 
+    employee_id INTEGER PRIMARY KEY,
+    image_data BLOB NOT NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+    )
+    """)
     seed_roles(cursor)
     sync_permissions(cursor)
     connection.commit()
@@ -765,6 +772,25 @@ def add_simulated_project_data(connection):
                 VALUES (?, ?, ?, ?, ?)
             """, (project_id, SIMULATED_TASK_TITLES[i], team[i % len(team)],
                   due.isoformat(), int(i < done_count)))
+            
+def get_data_for_profile_page():
+    """Returns a dictionary with the data needed for the profile page."""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    SELECT e.id, e.first_name, e.second_name, e.email, e.username,
+           r.name AS role_name, r.icon AS role_icon
+    FROM employees e
+    JOIN roles r ON r.id = e.role_id
+    """)
+    employee_data = cursor.fetchall()
+
+    connection.close()
+
+    return employee_data
+
+
 
 
 
