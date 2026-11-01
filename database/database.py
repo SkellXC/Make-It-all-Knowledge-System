@@ -153,7 +153,8 @@ def migrate_employees_to_role_id(connection):
 
 
 def get_all_roles():
-    """[(id, name, icon, is_locked), ...] - for the admin screen."""
+    """[(id, name, icon, is_locked), ...]
+    for the admin screen and displaying role on expanded project view."""
     connection = get_database_connection()
     rows = connection.execute(
         "SELECT id, name, icon, is_locked FROM roles ORDER BY id"
@@ -360,6 +361,26 @@ def remove_employee(employee_id):
     finally:
         connection.close()
 
+def get_project_members(project_id):
+    """
+    Returns a dictionary of employees on a project
+    """
+    with closing(get_database_connection()) as connection:
+        connection.row_factory = sqlite3.Row
+
+        cursor = connection.execute("""
+            SELECT e.id, e.first_name, e.second_name, e.email, e.role_id
+            FROM employees e
+            JOIN project_members pm ON e.id = pm.employee_id
+            WHERE pm.project_id = ?
+        """, (project_id,))
+
+        members_dict = {}
+        for row in cursor.fetchall():
+            members_dict[row["id"]] = dict(row)
+
+        return members_dict
+
 def get_projects_for_manager(manager_id):
     connection = get_database_connection()
     cursor = connection.cursor()
@@ -390,6 +411,90 @@ def get_projects_for_employee(employee_id):
 
     return projects
 
+def get_tasks_for_user(user):
+    """Unfinished tasks for the signed-in employee, soonest due date first.
+ 
+    Returns rows of (source, id, title, project_name, due_date) where
+    source is 'project' or 'personal', project_name is None for personal
+    tasks, and due_date is 'YYYY-MM-DD' or None.
+    """
+    employee_id = user.get("id")
+    if employee_id is None:
+        return []
+ 
+    query = """
+        SELECT 'project' AS source, t.id AS id, t.title AS title,
+               p.project_name AS project_name, t.due_date AS due_date
+        FROM project_tasks t
+        JOIN projects p ON p.id = t.project_id
+        WHERE t.assigned_to = ? AND t.completed = 0
+    """
+    params = [employee_id]
+ 
+    if can(user, "tasks.manage_own"):
+        query += """
+        UNION ALL
+        SELECT 'personal', id, title, NULL, due_date
+        FROM personal_tasks
+        WHERE employee_id = ? AND completed = 0
+        """
+        params.append(employee_id)
+ 
+    # Sort the combined result: due date (no date last), then title.
+    query = f"SELECT * FROM ({query}) ORDER BY due_date IS NULL, due_date, title"
+ 
+    with closing(get_database_connection()) as connection:
+        create_personal_tasks_table(connection)  # table is created lazily
+        return connection.execute(query, params).fetchall()
+
+def get_task_counts_for_team_leader(employee_id):
+    """Task progress for every project this team leader is a member of.
+ 
+    Returns rows of (project_id, project_name, status, deadline, todo, done),
+    soonest deadline first. A project with no tasks gives todo = 0 and done = 0.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT p.id, p.project_name, p.status, p.deadline,
+                   COALESCE(SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END), 0) AS todo,
+                   COALESCE(SUM(CASE WHEN t.completed = 1 THEN 1 ELSE 0 END), 0) AS done
+            FROM projects p
+            JOIN project_members m
+                ON m.project_id = p.id AND m.employee_id = ?
+            LEFT JOIN project_tasks t ON t.project_id = p.id
+            GROUP BY p.id
+            ORDER BY p.deadline, p.id
+            """,
+            (employee_id,),
+        ).fetchall()
+ 
+def get_team_progress_for_team_leader(employee_id):
+    """Who is on each of this team leader's projects, and how their tasks are going.
+ 
+    Returns rows of (project_id, employee_id, first_name, second_name,
+    assigned, completed): one row per project member, for every project the
+    team leader is a member of. `assigned` counts tasks assigned to that person
+    on that project, `completed` counts how many of those are done.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT m.project_id, e.id, e.first_name, e.second_name,
+                   COUNT(t.id) AS assigned,
+                   COALESCE(SUM(t.completed), 0) AS completed
+            FROM project_members m
+            JOIN employees e ON e.id = m.employee_id
+            LEFT JOIN project_tasks t
+                ON t.project_id = m.project_id AND t.assigned_to = e.id
+            WHERE m.project_id IN
+                (SELECT project_id FROM project_members WHERE employee_id = ?)
+            GROUP BY m.project_id, e.id
+            ORDER BY m.project_id, e.first_name, e.second_name
+            """,
+            (employee_id,),
+        ).fetchall()
+ 
 
 # ---------------------------------------------------------------------------
 # Projects (project_name, description, manager, status, start date, deadline)
@@ -653,6 +758,7 @@ if __name__ == "__main__":
 
 TASK_PRIORITIES = ("low", "normal", "high")
 
+# todo task functions
 
 def create_personal_tasks_table(connection):
     """Create the table, or add the new fields without removing saved tasks."""
@@ -746,6 +852,132 @@ def personal_task_data(user, action, task_id=None, title="", completed=False,
                     DELETE FROM personal_tasks
                     WHERE id = ? AND employee_id = ?
                 """, (task_id, employee_id))
+
+            if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
+                raise ValueError("This task is no longer available. Refresh and try again.")
+
+# project task functions
+
+def create_project_tasks_table(connection):
+    """Create the table, or add the new fields without removing saved tasks."""
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS project_tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1)),
+            priority TEXT NOT NULL DEFAULT 'normal'
+                CHECK (priority IN ('low', 'normal', 'high')),
+            due_date TEXT,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS task_assignments (
+            task_id INTEGER NOT NULL,
+            employee_id INTEGER NOT NULL,
+            PRIMARY KEY (task_id, employee_id),
+            FOREIGN KEY (task_id) REFERENCES project_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+            )
+    """)
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(project_tasks)")}
+    if "priority" not in columns:
+        connection.execute("""
+            ALTER TABLE project_tasks ADD COLUMN priority TEXT NOT NULL
+            DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high'))
+        """)
+    if "due_date" not in columns:
+        connection.execute("ALTER TABLE project_tasks ADD COLUMN due_date TEXT")
+    if "description" not in columns:
+        connection.execute("ALTER TABLE project_tasks ADD COLUMN description TEXT")
+
+def project_task_data(user, action, project_id=None, user_perms=None, task_id=None, title="", completed=False,
+                       priority="normal", due_date=None, assigned_to=None):
+    """Manage for a project using injected UI permissions. Dates use YYYY-MM-DD or None.
+    Verify perms with dictionary lookups.
+
+    load returns (id, title, completed, priority, due_date) for each task.
+    """
+    if not user_perms.get("check_tasks", False):
+        raise PermissionError("You cannot access project tasks.")
+
+    title = title.strip()
+
+    if action not in ("load", "add", "edit", "complete", "delete"):
+        raise ValueError("Unknown task action.")
+
+    if action in ("add", "edit"):
+        if not 1 <= len(title) <= 200:
+            raise ValueError("Enter a task between 1 and 200 characters.")
+        if priority not in TASK_PRIORITIES:
+            raise ValueError("Choose Low, Normal or High priority.")
+        if due_date is not None:
+            try:
+                valid_date = date.fromisoformat(due_date)
+            except (TypeError, ValueError):
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.") from None
+            if valid_date.isoformat() != due_date:
+                raise ValueError("Enter a valid due date in YYYY-MM-DD format.")
+
+    with closing(get_database_connection()) as connection:
+        with connection:
+            create_project_tasks_table(connection)
+
+            if action == "load":
+                return connection.execute("""
+                    SELECT id, title, completed, priority, due_date
+                    FROM project_tasks
+                    WHERE project_id = ?
+                    ORDER BY completed, due_date IS NULL, due_date,
+                        CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
+                        id DESC
+                """, (project_id,)).fetchall()
+
+            if action == "add":
+                if not user_perms.get("manage_tasks", False):
+                    raise PermissionError("You do not have permission to add project tasks.")
+
+                cursor = connection.execute("""
+                    INSERT INTO project_tasks (project_id, title, priority, due_date)
+                    VALUES (?, ?, ?, ?)
+                """, (project_id, title, priority, due_date))
+
+                new_task_id = cursor.lastrowid
+
+                if assigned_to and isinstance(assigned_to, list):
+                    for emp_id in assigned_to:
+                        connection.execute("""
+                            INSERT INTO task_assignments (task_id, employee_id)
+                            VALUES (?, ?)
+                        """, (new_task_id, emp_id))
+
+            elif action == "edit":
+                if not user_perms.get("manage_tasks", False):
+                    raise PermissionError("You do not have permission to edit project tasks.")
+                cursor = connection.execute("""
+                    UPDATE project_tasks
+                    SET title = ?, priority = ?, due_date = ?,
+                    WHERE id = ? AND project_id = ?
+                """, (title, priority, due_date, task_id, project_id))
+
+            elif action == "complete":
+                cursor = connection.execute("""
+                    UPDATE project_tasks
+                    SET completed = ?
+                    WHERE id = ? AND project_id = ?
+                """, (int(completed), task_id, project_id))
+
+            elif action == "delete":
+                if not user_perms.get("manage_tasks", False):
+                    raise PermissionError("You do not have permission to delete project tasks.")
+
+                cursor = connection.execute("""
+                    DELETE FROM project_tasks
+                    WHERE id = ? AND project_id = ?
+                """, (task_id, project_id))
 
             if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
                 raise ValueError("This task is no longer available. Refresh and try again.")

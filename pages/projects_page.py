@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QVBoxLayout, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
+from PySide6.QtWidgets import QVBoxLayout, QScrollArea, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
 from PySide6.QtGui import QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
+from PySide6.QtCore import Signal
 # Importing necessary data using functions from database.py
 from database.database import list_projects_for_user, get_employee_by_id, get_projects_for_employee
 
@@ -61,7 +62,7 @@ class CollapsiblePanel(QWidget):
     def __init__(self, title, parent=None):
           super().__init__(parent)
           self.is_expanded = True
-
+          
           # vertical layout
           self.main_layout = QVBoxLayout(self)
           self.main_layout.setContentsMargins(0, 0, 0, 0)
@@ -121,9 +122,12 @@ class CollapsiblePanel(QWidget):
         self.content_layout.addLayout(layout)
      
 class ProjectsPage(QWidget):
+    project_selected = Signal(dict)
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
+        # debug
+        self.project_selected.connect(lambda p: print(f"It works. Clicked: {p['project_name']}"))
         self.setup_ui()
 
     def build_project_card(self, project):
@@ -150,7 +154,9 @@ class ProjectsPage(QWidget):
 
         view_button = QPushButton("View Project")
         view_button.setIcon(QIcon.fromTheme(QIcon.ThemeIcon.SystemSearch))
-
+        view_button.clicked.connect(
+            lambda checked=False, p=project: self.emit_view_project(p)
+        )
         for widget in (title, deadline, pending, description, progress, view_button):
             layout.addWidget(widget)
         layout.addStretch()
@@ -170,21 +176,34 @@ class ProjectsPage(QWidget):
         return panel
 
     def setup_ui(self):
-        self.content_layout = QVBoxLayout(self)
+        # hierarchy: self -> scroll layout -> content -> content layout -> widgets
+        # outer page container to hold scroll bar
+        scroll_layout = QVBoxLayout(self)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(f"QScrollArea {{ background: #f3f5f8; border: none; }}")
+        scroll.viewport().setAutoFillBackground(False)
+        scroll_layout.addWidget(scroll)
+
+        # put page contents into scroll area
+        content = QWidget()
+        content.setAutoFillBackground(False)
+        content.setObjectName("projects_content")
+        content.setStyleSheet(f"#projects_content {{ background: #f3f5f8; }}")
+        scroll.setWidget(content)
+
+        self.content_layout = QVBoxLayout(content) # content layout from content
         self.content_layout.setContentsMargins(28, 26, 28, 24)
 
         # import projects
         employee = get_employee_by_id(self.user["id"])
 
-        # !-- Role Map --!
-        # retrieve and store employee role in memory using a 'role map' dictionary, good for scalability
-        role_map = {
-            1: "employee",
-            2: "team leader",
-            3: "manager",
-            4: "administrator"
-        }
-        self.current_user_role = role_map.get(employee[6], "employee") # defaults to employee if field is broken
+        self.current_user_role = employee[6]
+
         employee_projects = get_projects_for_employee(self.user["id"])
         employee_projects_in_progress = []
         employee_projects_not_started = []
@@ -229,10 +248,10 @@ class ProjectsPage(QWidget):
                 "mark_project_completed": True,
             }
         }
-        self.current_user_role = employee[6] if employee[6] in role_permissions else "employee"
 
         # attach PBAC's to employee
-        self.perms = role_permissions[self.current_user_role]
+        self.perms = role_permissions.get(self.current_user_role, role_permissions["employee"])
+
 
         projects = list_projects_for_user(self.user)
         in_progress = [p for p in projects if p["status"] == "in progress"]
@@ -243,4 +262,5 @@ class ProjectsPage(QWidget):
         self.content_layout.addWidget(self.build_project_section("Projects not started", not_started))
         self.content_layout.addStretch()
 
-        # Expanded project page
+    def emit_view_project(self, project_data):
+        self.project_selected.emit(project_data)
