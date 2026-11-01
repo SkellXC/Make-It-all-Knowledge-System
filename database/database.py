@@ -495,6 +495,53 @@ def get_team_progress_for_team_leader(employee_id):
             (employee_id,),
         ).fetchall()
  
+def get_task_counts_for_manager(manager_id):
+    """Task progress for every project this manager is in charge of.
+ 
+    Returns rows of (project_id, project_name, status, deadline, todo, done),
+    soonest deadline first. A project with no tasks gives todo = 0 and done = 0.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT p.id, p.project_name, p.status, p.deadline,
+                   COALESCE(SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END), 0) AS todo,
+                   COALESCE(SUM(CASE WHEN t.completed = 1 THEN 1 ELSE 0 END), 0) AS done
+            FROM projects p
+            LEFT JOIN project_tasks t ON t.project_id = p.id
+            WHERE p.manager_id = ?
+            GROUP BY p.id
+            ORDER BY p.deadline, p.id
+            """,
+            (manager_id,),
+        ).fetchall()
+ 
+ 
+def get_team_progress_for_manager(manager_id):
+    """Everyone on each of this manager's projects, and how their tasks are going.
+ 
+    Returns rows of (project_id, employee_id, first_name, second_name,
+    assigned, completed, role_name), one per project member.
+    """
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT m.project_id, e.id, e.first_name, e.second_name,
+                   COUNT(t.id) AS assigned,
+                   COALESCE(SUM(t.completed), 0) AS completed,
+                   r.name AS role_name
+            FROM projects p
+            JOIN project_members m ON m.project_id = p.id
+            JOIN employees e ON e.id = m.employee_id
+            JOIN roles r ON r.id = e.role_id
+            LEFT JOIN project_tasks t
+                ON t.project_id = m.project_id AND t.assigned_to = e.id
+            WHERE p.manager_id = ?
+            GROUP BY m.project_id, e.id
+            ORDER BY m.project_id, e.first_name, e.second_name
+            """,
+            (manager_id,),
+        ).fetchall()
 
 # ---------------------------------------------------------------------------
 # Projects (project_name, description, manager, status, start date, deadline)

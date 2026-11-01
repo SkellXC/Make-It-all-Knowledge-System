@@ -1,192 +1,300 @@
+"""Manager dashboard: a "Management view" tab and a "My work" tab.
+
+Self-contained: it only needs
+  - app/donut_chart.py            (StatusOverviewCard)
+  - pages/employee_dashboard.py   (EmployeeDashboard, used for the My work tab)
+  - the two manager queries in database/database.py
+"""
+from datetime import date
+
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QProgressBar,
+    QScrollArea,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
-    QScrollArea
 )
-from PySide6.QtGui import Qt
-from database.database import get_projects_for_manager
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QPalette
+
+from app.donut_chart import StatusOverviewCard
+from pages.employee_dashboard import EmployeeDashboard
+from database.database import (
+    get_task_counts_for_manager,
+    get_team_progress_for_manager,
+)
+
+CHARTS_PER_ROW = 2
+AMBER, GREEN = "#f5a623", "#94c83d"
+PAGE_BACKGROUND = "#f3f5f8"
+
+TAB_STYLE = f"""
+QTabWidget::pane {{ border: none; background: {PAGE_BACKGROUND}; }}
+QTabWidget {{ background: {PAGE_BACKGROUND}; }}
+QTabBar {{ background: {PAGE_BACKGROUND}; }}
+QTabWidget::tab-bar {{ left: 28px; }}
+QTabBar::tab {{
+    padding: 12px 20px; margin-right: 6px; font-size: 15px; font-weight: bold;
+    color: #5a6b75; background: transparent; border-bottom: 3px solid transparent;
+}}
+QTabBar::tab:selected {{ color: #0e6b63; border-bottom: 3px solid #0e6b63; }}
+QTabBar::tab:hover:!selected {{ color: #13222b; }}
+"""
 
 
-class ManagerDashboard(QWidget):
+def clear_layout(layout):
+    """Remove and delete everything inside a layout, including nested layouts."""
+    while layout.count():
+        item = layout.takeAt(0)
+        if item.widget() is not None:
+            item.widget().hide()
+            item.widget().deleteLater()
+        elif item.layout() is not None:
+            clear_layout(item.layout())
+            item.layout().deleteLater()
+
+
+def progress_bar(completed, assigned):
+    """A thin green bar showing completed out of assigned."""
+    bar = QProgressBar()
+    bar.setRange(0, max(assigned, 1))
+    bar.setValue(completed)
+    bar.setTextVisible(False)
+    bar.setFixedHeight(8)
+    bar.setStyleSheet(
+        "QProgressBar { background: #d8e0e5; border: none; border-radius: 4px; }"
+        "QProgressBar::chunk { background: #94c83d; border-radius: 4px; }"
+    )
+    return bar
+
+
+def white_card():
+    card = QFrame()
+    card.setObjectName("dashboardCard")
+    layout = QVBoxLayout(card)
+    layout.setContentsMargins(20, 16, 20, 16)
+    layout.setSpacing(10)
+    return card, layout
+
+
+class ManagerView(QWidget):
+    """The Management view tab."""
+
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
         self.setup_ui()
 
     def setup_ui(self):
-        # scroll bar
-        # outer page container to hold scroll bar
-        scroll_layout = QVBoxLayout(self)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        # outer page container to hold the scroll bar
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(f"QScrollArea {{ background: #f3f5f8; border: none; }}")
+        scroll.setStyleSheet(f"QScrollArea {{ background: {PAGE_BACKGROUND}; border: none; }}")
         scroll.viewport().setAutoFillBackground(False)
-        scroll_layout.addWidget(scroll)
+        outer.addWidget(scroll)
 
-        # put page contents into scroll area
         content = QWidget()
         content.setAutoFillBackground(False)
-        content.setObjectName("employee_dashboard_content")
-        content.setStyleSheet(f"#employee_dashboard_content {{ background: #f3f5f8; }}")
+        content.setObjectName("manager_dashboard_content")
+        content.setStyleSheet(f"#manager_dashboard_content {{ background: {PAGE_BACKGROUND}; }}")
         scroll.setWidget(content)
 
-
-        # dashboard
         self.content_layout = QVBoxLayout(content)
         self.content_layout.setContentsMargins(28, 26, 28, 24)
         self.content_layout.setSpacing(20)
 
-        title = QLabel("Manager Dashboard")
+        self.refresh_content()
+
+    def on_show(self):
+        """Called each time the tab / page is opened, so the data is never stale."""
+        self.refresh_content()
+
+    def refresh_content(self):
+        clear_layout(self.content_layout)
+        self.load_data()
+        self.build_header()
+        self.build_summary()
+        self.build_project_charts()
+        self.content_layout.addStretch()
+
+    def load_data(self):
+        manager_id = self.user["id"]
+        self.rows = get_task_counts_for_manager(manager_id)
+
+        # {project_id: [(employee_id, first, second, assigned, completed, role), ...]}
+        self.team = {}
+        for row in get_team_progress_for_manager(manager_id):
+            self.team.setdefault(row[0], []).append(row[1:])
+
+    # ----------------------------------------------------------------- header
+    def build_header(self):
+        count = len(self.rows)
+
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(4)
+
+        title = QLabel(f"Welcome back, {self.user['first_name']}")
         title.setObjectName("PageTitle")
-        self.content_layout.addWidget(title)
+        title.setStyleSheet("#PageTitle { font-size: 40px; font-weight: bold; }")
+        text_layout.addWidget(title)
 
-        subtitle = QLabel("Monitor project progress and team workload")
+        subtitle = QLabel(f"You manage {count} project{'s' if count != 1 else ''}.")
         subtitle.setObjectName("pageSubtitle")
-        self.content_layout.addWidget(subtitle)
+        subtitle.setStyleSheet("#pageSubtitle { font-size: 20px; font-weight: bold; }")
+        text_layout.addWidget(subtitle)
 
-        summary_layout = QHBoxLayout()
-        summary_layout.setSpacing(16)
+        date_label = QLabel(date.today().strftime("%A\n%d %B %Y"))
+        date_label.setObjectName("pageDate")
+        date_label.setStyleSheet("#pageDate { font-size: 16px; color: #5a6b75; }")
+        date_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-        projects = get_projects_for_manager(self.user["id"])
+        header = QHBoxLayout()
+        header.addLayout(text_layout, 1)
+        header.addWidget(date_label)
+        self.content_layout.addLayout(header)
 
-        active_projects = 0
-        not_started_projects = 0
-        completed_projects = 0
+    # ------------------------------------------------ total projects managed
+    def build_summary(self):
+        total = len(self.rows)
+        in_progress = len([r for r in self.rows if r[2] == "in progress"])
+        not_started = len([r for r in self.rows if r[2] == "not started"])
 
-        for project in projects:
-            if project[4] == "not started":
-                not_started_projects += 1
-            elif project[4] == "in progress":
-                active_projects += 1
-            elif project[4] == "completed":
-                completed_projects += 1
+        card, layout = white_card()
+        layout.setSpacing(4)
 
-        not_started_projects_card = self.create_summary_card(
-            "Unstarted Projects",
-            not_started_projects
-        )
+        heading = QLabel("Projects under management")
+        heading.setObjectName("summaryCardTitle")
+        value = QLabel(str(total))
+        value.setObjectName("summaryCardValue")
+        value.setStyleSheet("font-size: 40px; font-weight: bold;")
+        breakdown = QLabel(f"{in_progress} in progress · {not_started} not started")
+        breakdown.setStyleSheet("color: #5a6b75;")
 
-        active_projects_card = self.create_summary_card(
-            "Active Projects",
-            active_projects
-        )
+        layout.addWidget(heading)
+        layout.addWidget(value)
+        layout.addWidget(breakdown)
+        self.content_layout.addWidget(card)
 
-        completed_projects_card = self.create_summary_card(
-            "Completed Projects",
-            completed_projects
-        )
+    # ----------------------------------------------- task progress per project
+    def build_project_charts(self):
+        """One donut per project (to do vs done) with the people underneath."""
+        section_title = QLabel("Task progress by project")
+        section_title.setObjectName("sectionTitle")
+        section_title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        self.content_layout.addWidget(section_title)
 
-        team_members_card = self.create_summary_card(
-            "Team Members",
-            10
-        )
+        if not self.rows:
+            empty = QLabel("You don't manage any projects yet.")
+            empty.setStyleSheet("color: #5a6b75;")
+            self.content_layout.addWidget(empty)
+            return
 
-        summary_layout.addWidget(not_started_projects_card)
-        summary_layout.addWidget(active_projects_card)
-        summary_layout.addWidget(completed_projects_card)
-        summary_layout.addWidget(team_members_card)
+        grid = QGridLayout()
+        grid.setSpacing(16)
+        for column in range(CHARTS_PER_ROW):
+            grid.setColumnStretch(column, 1)  # equal widths, even with one project
 
-        self.content_layout.addLayout(summary_layout)
-
-        # PROJECT STATUS
-
-        status_title = QLabel("Project Status")
-        status_title.setObjectName("sectionTitle")
-        self.content_layout.addWidget(status_title)
-
-        status_layout = QHBoxLayout()
-        status_layout.setSpacing(2)
-
-        not_started_bar = QLabel("Not Started")
-        not_started_bar.setObjectName("statusNotStarted")
-
-        in_progress_bar = QLabel("In Progress")
-        in_progress_bar.setObjectName("statusInProgress")
-
-        completed_bar = QLabel("Completed")
-        completed_bar.setObjectName("statusCompleted")
-
-        if not_started_projects > 0:
-            status_layout.addWidget(
-                not_started_bar,
-                not_started_projects
+        for index, (project_id, name, status, deadline, todo, done) in enumerate(self.rows):
+            total = todo + done
+            due = date.fromisoformat(deadline).strftime("%d %b %Y")
+            subtitle = (
+                f"{todo} of {total} tasks still to do · due {due}" if total
+                else f"No tasks yet · due {due}"
+            )
+            chart = StatusOverviewCard(
+                name,
+                subtitle,
+                [("To do", todo, AMBER), ("Done", done, GREEN)],
+                "Tasks",  # the number in the middle is the total
             )
 
-        if active_projects > 0:
-            status_layout.addWidget(
-                in_progress_bar,
-                active_projects
-            )
+            cell = QVBoxLayout()
+            cell.setSpacing(12)
+            cell.addWidget(chart)
+            cell.addWidget(self.create_team_card(self.team.get(project_id, [])))
+            cell.addStretch()  # keeps cards at the top when neighbours are taller
+            grid.addLayout(cell, index // CHARTS_PER_ROW, index % CHARTS_PER_ROW)
 
-        if completed_projects > 0:
-            status_layout.addWidget(
-                completed_bar,
-                completed_projects
-            )
+        self.content_layout.addLayout(grid)
 
-        self.content_layout.addLayout(status_layout)
+    def create_team_card(self, members):
+        """Everyone on one project, with how many of their own tasks are done."""
+        card, layout = white_card()
 
-        # PROJECT PROGRESS
+        count = len(members)
+        heading = QLabel(f"{count} employee{'s' if count != 1 else ''} working on this project")
+        heading.setObjectName("cardTitle")
+        layout.addWidget(heading)
 
-        project_title = QLabel("Project Progress")
-        project_title.setObjectName("sectionTitle")
-        self.content_layout.addWidget(project_title)
+        if not members:
+            empty = QLabel("Nobody is on this project yet.")
+            empty.setStyleSheet("color: #5a6b75;")
+            layout.addWidget(empty)
 
-        projects_layout = QGridLayout()
-        projects_layout.setSpacing(16)
+        for employee_id, first, second, assigned, completed, role in members:
+            name = f"{first} {second}"
+            if role == "team leader":
+                name += " (team leader)"
 
-        for index, project in enumerate(projects):
+            top = QHBoxLayout()
+            top.addWidget(QLabel(name), 1)
+            summary = QLabel(f"{completed} of {assigned} tasks done" if assigned else "No tasks assigned")
+            summary.setStyleSheet("color: #5a6b75;")
+            top.addWidget(summary)
 
-            project_card = QFrame()
-            project_card.setObjectName("dashboardCard")
-
-            project_layout = QVBoxLayout(project_card)
-
-            project_name = QLabel(project[1])
-            project_layout.addWidget(project_name)
-
-            project_description = QLabel(project[2])
-            project_layout.addWidget(project_description)
-
-            project_status = QLabel(
-                f"Status: {project[4]}"
-            )
-            project_layout.addWidget(project_status)
-
-            row = index // 2
-            column = index % 2
-
-            projects_layout.addWidget(
-                project_card,
-                row,
-                column
-            )
-
-        self.content_layout.addLayout(projects_layout)
-
-    def create_summary_card(self, title, value):
-        card = QFrame()
-        card.setObjectName("dashboardCard")
-
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(20, 16, 20, 16)
-        card_layout.setSpacing(6)
-
-        title_label = QLabel(title)
-        title_label.setObjectName("summaryCardTitle")
-
-        value_label = QLabel(str(value))
-        value_label.setObjectName("summaryCardValue")
-
-        card_layout.addWidget(title_label)
-        card_layout.addWidget(value_label)
-
+            person = QVBoxLayout()
+            person.setSpacing(4)
+            person.addLayout(top)
+            person.addWidget(progress_bar(completed, assigned))
+            layout.addLayout(person)
         return card
+
+
+class ManagerDashboard(QWidget):
+    """What MainWindow creates for managers: two tabs.
+
+    Management view : projects under management and per-project progress.
+    My work         : the normal employee dashboard, for the manager's own tasks.
+    """
+
+    def __init__(self, user=None, parent=None):
+        super().__init__(parent)
+        self.user = user
+
+        self.management_view = ManagerView(user=user)
+        self.my_work_view = EmployeeDashboard(user=user)
+
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(TAB_STYLE)
+        self.tabs.addTab(self.management_view, "Management view")
+        self.tabs.addTab(self.my_work_view, "My work")
+        self.tabs.currentChanged.connect(self.refresh_current_tab)
+
+        # paint the empty strip beside the tabs in the page colour too
+        palette = self.palette()
+        palette.setColor(QPalette.ColorRole.Window, QColor(PAGE_BACKGROUND))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.tabs)
+
+    def on_show(self):
+        """Called by MainWindow every time the Dashboard page is opened."""
+        self.refresh_current_tab()
+
+    def refresh_current_tab(self, *_):
+        """Reload whichever tab is on screen."""
+        page = self.tabs.currentWidget()
+        if hasattr(page, "on_show"):
+            page.on_show()
