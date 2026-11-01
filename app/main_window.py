@@ -124,7 +124,10 @@ class MainWindow(QMainWindow):
     def show_page(self, key):
         if key not in self.pages:
             return  # not available to this user
-        self.page_stack.setCurrentWidget(self.pages[key])
+        page = self.pages[key]
+        if hasattr(page, "on_show"):
+            page.on_show()  # let the page reload its data
+        self.page_stack.setCurrentWidget(page)
 
         # project view switching
     def setup_project_viewswitching(self, projects_page_instance):

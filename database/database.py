@@ -411,6 +411,42 @@ def get_projects_for_employee(employee_id):
 
     return projects
 
+def get_tasks_for_user(user):
+    """Unfinished tasks for the signed-in employee, soonest due date first.
+ 
+    Returns rows of (source, id, title, project_name, due_date) where
+    source is 'project' or 'personal', project_name is None for personal
+    tasks, and due_date is 'YYYY-MM-DD' or None.
+    """
+    employee_id = user.get("id")
+    if employee_id is None:
+        return []
+ 
+    query = """
+        SELECT 'project' AS source, t.id AS id, t.title AS title,
+               p.project_name AS project_name, t.due_date AS due_date
+        FROM project_tasks t
+        JOIN projects p ON p.id = t.project_id
+        WHERE t.assigned_to = ? AND t.completed = 0
+    """
+    params = [employee_id]
+ 
+    if can(user, "tasks.manage_own"):
+        query += """
+        UNION ALL
+        SELECT 'personal', id, title, NULL, due_date
+        FROM personal_tasks
+        WHERE employee_id = ? AND completed = 0
+        """
+        params.append(employee_id)
+ 
+    # Sort the combined result: due date (no date last), then title.
+    query = f"SELECT * FROM ({query}) ORDER BY due_date IS NULL, due_date, title"
+ 
+    with closing(get_database_connection()) as connection:
+        create_personal_tasks_table(connection)  # table is created lazily
+        return connection.execute(query, params).fetchall()
+
 # ---------------------------------------------------------------------------
 # Projects (project_name, description, manager, status, start date, deadline)
 # ---------------------------------------------------------------------------
