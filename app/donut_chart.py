@@ -4,16 +4,28 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 
 class DonutChart(QWidget):
-    """A ring split into coloured segments, with the total written in the middle.
+    """A ring split into coloured segments, with a number written in the middle.
 
     segments: list of (label, value, "#hexcolour")
+    complete_label: if given, the middle shows the percentage of the total that
+        sits in the segment with this label (e.g. "Done" -> "62%" complete).
+        If None, the middle shows the plain total instead.
     """
 
-    def __init__(self, segments, total_label="Total", parent=None):
+    def __init__(self, segments, total_label="Total", complete_label=None, parent=None):
         super().__init__(parent)
         self.segments = segments
         self.total_label = total_label
+        self.complete_label = complete_label
         self.setMinimumSize(190, 190)
+
+    def percent_complete(self):
+        """Whole-number percentage of the total in the 'complete' segment."""
+        total = sum(value for _, value, _ in self.segments)
+        if total == 0:
+            return 0
+        done = sum(v for label, v, _ in self.segments if label == self.complete_label)
+        return round(done / total * 100)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -62,7 +74,7 @@ class DonutChart(QWidget):
         painter.drawText(
             QRectF(rect.x(), rect.y(), rect.width(), rect.height() * 0.56),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
-            str(total),
+            f"{self.percent_complete()}%" if self.complete_label else str(total),
         )
 
         label_font = QFont(self.font())
@@ -72,14 +84,16 @@ class DonutChart(QWidget):
         painter.drawText(
             QRectF(rect.x(), rect.y() + rect.height() * 0.56, rect.width(), rect.height() * 0.3),
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop,
-            self.total_label,
+            "Complete" if self.complete_label else self.total_label,
         )
 
 
 class StatusOverviewCard(QFrame):
     """Card with a title, a one-line description, a donut and a legend."""
 
-    def __init__(self, title, subtitle, segments, total_label="Total", parent=None):
+    def __init__(
+        self, title, subtitle, segments, total_label="Total", complete_label=None, parent=None
+    ):
         super().__init__(parent)
         self.setObjectName("dashboardCard")
 
@@ -97,7 +111,7 @@ class StatusOverviewCard(QFrame):
 
         body = QHBoxLayout()
         body.setSpacing(24)
-        body.addWidget(DonutChart(segments, total_label), 3)
+        body.addWidget(DonutChart(segments, total_label, complete_label), 3)
 
         legend = QVBoxLayout()
         legend.setSpacing(8)

@@ -207,7 +207,7 @@ class ManagerView(QWidget):
             total = todo + done
             due = date.fromisoformat(deadline).strftime("%d %b %Y")
             subtitle = (
-                f"{todo} of {total} tasks still to do · due {due}" if total
+                f"{done} of {total} tasks done · due {due}" if total
                 else f"No tasks yet · due {due}"
             )
             chart = StatusOverviewCard(
@@ -215,6 +215,7 @@ class ManagerView(QWidget):
                 subtitle,
                 [("To do", todo, colors.NOT_STARTED), ("Done", done, colors.DONE)],
                 "Tasks",  # the number in the middle is the total
+                complete_label="Done",
             )
 
             cell = QVBoxLayout()

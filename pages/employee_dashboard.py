@@ -12,7 +12,12 @@ from PySide6.QtCore import Qt
 
 from app import colors
 from app.donut_chart import StatusOverviewCard
-from database.database import get_projects_for_employee, get_tasks_for_user
+from database.database import (
+    get_done_task_count_for_user,
+    get_project_task_totals_for_employee,
+    get_projects_for_employee,
+    get_tasks_for_user,
+)
 
 # Project rows come from SELECT projects.*, so the columns are:
 # [0] id, [1] project_name, [2] description, [3] manager_id,
@@ -112,6 +117,8 @@ class EmployeeDashboard(QWidget):
 
         clear_layout(self.content_layout)
         projects = get_projects_for_employee(self.user["id"])
+        self.done_tasks = get_done_task_count_for_user(self.user["id"])
+        self.project_todo, self.project_done = get_project_task_totals_for_employee(self.user["id"])
         self.tasks = load_tasks(self.user)
 
         # Sections appear top to bottom in this order. Move a line to move a section.
@@ -196,10 +203,11 @@ class EmployeeDashboard(QWidget):
 
     # OVERVIEW
     def build_overview(self, projects):
-        """Two donut cards side by side: projects by status, tasks by due date."""
-        not_started = len([p for p in projects if p[4] == "not started"])
-        in_progress = len([p for p in projects if p[4] == "in progress"])
+        """Two donut cards side by side, each showing a percentage complete.
 
+        Left: how much of the task work across your projects is done.
+        Right: your own tasks, done vs. still open (split by due date).
+        """
         due_dates = [t["due"] for t in self.tasks]
         overdue = len([d for d in due_dates if d and d < TODAY])
         due_today = len([d for d in due_dates if d == TODAY])
@@ -209,18 +217,21 @@ class EmployeeDashboard(QWidget):
         row = QHBoxLayout()
         row.setSpacing(16)
         row.addWidget(StatusOverviewCard(
-            "Project status",
-            "A snapshot of your projects.",
-            [("Not started", not_started, colors.NOT_STARTED),
-             ("In progress", in_progress, colors.IN_PROGRESS)],
-            "Projects",
+            "Project progress",
+            "Tasks done across all your projects.",
+            [("To do", self.project_todo, colors.NOT_STARTED),
+             ("Done", self.project_done, colors.DONE)],
+            "Tasks",
+            complete_label="Done",
         ))
         row.addWidget(StatusOverviewCard(
             "Task overview",
-            "Your open tasks by due date.",
-            [("Overdue", overdue, colors.OVERDUE), ("Due today", due_today, colors.DUE_SOON),
+            "Your tasks: done, and the rest by due date.",
+            [("Done", self.done_tasks, colors.DONE),
+             ("Overdue", overdue, colors.OVERDUE), ("Due today", due_today, colors.DUE_SOON),
              ("Upcoming", upcoming, colors.UPCOMING), ("No due date", no_date, colors.NO_DATE)],
             "Tasks",
+            complete_label="Done",
         ))
         self.content_layout.addLayout(row)
 

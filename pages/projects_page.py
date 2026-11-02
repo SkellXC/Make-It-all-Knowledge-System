@@ -52,13 +52,14 @@ CARD_STYLE = """
 
 ADD_BUTTON_STYLE = """
     QPushButton {
-        color: #dbe4f0;
-        background: #243c5b;
-        border: 1px solid transparent;
+        color: white;
+        background: #476da6;
+        border: 1px solid #476da6;
         border-radius: 6px;
         padding: 11px 18px;
     }
-    QPushButton:hover { background: #355783; }
+    QPushButton:hover { background: #3b5e92; border-color: #3b5e92; }
+    QPushButton:focus { border: 2px solid #91abd0; }
 """
 
 class ElidedLabel(QLabel): # Overriding QLabel's paintEvent

@@ -239,4 +239,55 @@ QFrame#loginCard QPushButton#secondaryButton {
     border: 1px solid #476da6;
 }
 QFrame#loginCard QPushButton#secondaryButton:hover { background: #eef2f8; }
+
+/* Add / edit project dialog */
+QDialog#projectDialog { background: #f3f5f8; }
+QDialog#projectDialog QLabel { background: transparent; }
+QDialog#projectDialog QLabel#projectError { color: #a3313c; }
+QDialog#projectDialog QPlainTextEdit, QDialog#projectDialog QComboBox,
+QDialog#projectDialog QDateEdit, QDialog#projectDialog QListWidget {
+    background: white;
+    border: 1px solid #bdc9d9;
+    border-radius: 5px;
+    padding: 6px;
+    selection-background-color: #e2ebf8;
+    selection-color: #243247;
+}
+QDialog#projectDialog QPlainTextEdit:focus, QDialog#projectDialog QComboBox:focus,
+QDialog#projectDialog QDateEdit:focus { border-color: #476da6; }
+QDialog#projectDialog QListWidget::item { padding: 5px; }
+QDialog#projectDialog QListWidget::item:selected { background: #e2ebf8; color: #243247; }
+QDialog#projectDialog QComboBox QAbstractItemView {
+    background: white;
+    border: 1px solid #d9dee7;
+    selection-background-color: #e2ebf8;
+    selection-color: #243247;
+}
+QDialog#projectDialog QPushButton {
+    background: white;
+    color: #365a8d;
+    border: 1px solid #ccd6e4;
+    border-radius: 6px;
+    padding: 9px 18px;
+}
+QDialog#projectDialog QPushButton:hover { background: #edf2f9; }
+QDialog#projectDialog QPushButton#projectPrimary {
+    background: #476da6;
+    color: white;
+    border-color: #476da6;
+}
+QDialog#projectDialog QPushButton#projectPrimary:hover { background: #3b5e92; border-color: #3b5e92; }
+QDialog#projectDialog QPushButton:focus { border: 2px solid #91abd0; }
+
+/* Date picker pop-up (calendar) */
+QCalendarWidget QWidget { background: white; color: #243247; }
+QCalendarWidget QToolButton { background: white; color: #243247; border: none; padding: 4px 8px; }
+QCalendarWidget QToolButton:hover { background: #edf2f9; border-radius: 4px; }
+QCalendarWidget QAbstractItemView:enabled {
+    background: white;
+    color: #243247;
+    selection-background-color: #476da6;
+    selection-color: white;
+}
+QCalendarWidget QAbstractItemView:disabled { color: #a9b4c4; }
 """

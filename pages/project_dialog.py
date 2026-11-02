@@ -26,6 +26,7 @@ class ProjectDialog(QDialog):
         super().__init__(parent)
         self.user = user
         self.on_save = on_save
+        self.setObjectName("projectDialog")
         self.setWindowTitle("Edit project" if project else "Add project")
         self.setMinimumWidth(480)
 
@@ -98,11 +99,14 @@ class ProjectDialog(QDialog):
         self.error_label = QLabel()
         self.error_label.setWordWrap(True)
         self.error_label.setTextFormat(Qt.TextFormat.PlainText)
-        self.error_label.setStyleSheet("color: #b3261e;")
+        self.error_label.setObjectName("projectError")
         layout.addWidget(self.error_label)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        save_button.setObjectName("projectPrimary")
+        save_button.setDefault(True)
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)

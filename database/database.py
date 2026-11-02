@@ -498,6 +498,37 @@ def get_tasks_for_user(user):
         create_personal_tasks_table(connection)  # table is created lazily
         return connection.execute(query, params).fetchall()
 
+def get_done_task_count_for_user(employee_id):
+    """How many project tasks assigned to this employee are marked done."""
+    with closing(get_database_connection()) as connection:
+        return connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM project_tasks t
+            JOIN projects p ON p.id = t.project_id
+            WHERE t.assigned_to = ? AND t.completed = 1
+            """,
+            (employee_id,),
+        ).fetchone()[0]
+
+
+def get_project_task_totals_for_employee(employee_id):
+    """(todo, done) task counts across every project this employee is a member of."""
+    with closing(get_database_connection()) as connection:
+        todo, done = connection.execute(
+            """
+            SELECT COALESCE(SUM(CASE WHEN t.completed = 0 THEN 1 ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN t.completed = 1 THEN 1 ELSE 0 END), 0)
+            FROM project_tasks t
+            WHERE t.project_id IN (
+                SELECT project_id FROM project_members WHERE employee_id = ?
+            )
+            """,
+            (employee_id,),
+        ).fetchone()
+        return todo, done
+
+
 def get_task_counts_for_team_leader(employee_id):
     """Task progress for every project this team leader is a member of.
  
