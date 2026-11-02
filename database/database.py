@@ -88,6 +88,28 @@ def create_tables():
    
     connection.commit()
     connection.close()
+def get_user_profile_picture(employee_id):
+    """Returns the prfile picture data for the given employee_id, or None if the employee has no profile picture."""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+    SELECT image_data FROM profile_pictures WHERE employee_id = ?
+    """, (employee_id,))
+    result = cursor.fetchone()
+    connection.close()
+    return result[0] if result else None
+
+def save_user_profile_picture(employee_id, image_data):
+    """Saves the profile picture data for the given employee_id. If a profile picture already exists, it will be updated."""
+    connection = get_database_connection()
+    cursor = connection.cursor()
+    cursor.execute("""
+    INSERT OR REPLACE INTO profile_pictures (employee_id, image_data) VALUES (?, ?)
+    ON CONFLICT(employee_id) DO UPDATE SET image_data = excluded.image_data
+    """, (employee_id, image_data))
+    connection.commit()
+    connection.close()
+
 
 def seed_roles(cursor):
     """Make sure the four roles exist with the icons/locks defined in code."""
@@ -773,23 +795,6 @@ def add_simulated_project_data(connection):
             """, (project_id, SIMULATED_TASK_TITLES[i], team[i % len(team)],
                   due.isoformat(), int(i < done_count)))
             
-def get_data_for_profile_page():
-    """Returns a dictionary with the data needed for the profile page."""
-    connection = get_database_connection()
-    cursor = connection.cursor()
-
-    cursor.execute("""
-    SELECT e.id, e.first_name, e.second_name, e.email, e.username,
-           r.name AS role_name, r.icon AS role_icon
-    FROM employees e
-    JOIN roles r ON r.id = e.role_id
-    """)
-    employee_data = cursor.fetchall()
-
-    connection.close()
-
-    return employee_data
-
 
 
 
