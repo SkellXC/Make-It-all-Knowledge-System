@@ -1059,7 +1059,7 @@ def project_task_data(user, action, project_id=None, user_perms=None, task_id=No
                     raise PermissionError("You do not have permission to edit project tasks.")
                 cursor = connection.execute("""
                     UPDATE project_tasks
-                    SET title = ?, priority = ?, due_date = ?,
+                    SET title = ?, priority = ?, due_date = ?
                     WHERE id = ? AND project_id = ?
                 """, (title, priority, due_date, task_id, project_id))
 
