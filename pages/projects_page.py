@@ -33,7 +33,7 @@ CARD_STYLE = """
                         font-size: 11px;
                     }
                     QProgressBar::chunk {
-                        background-color: #4285f4; /* Blue matching the dashboard status bar */
+                        background-color: #22c55e; /* Green = done, matches the dashboards */
                         border-radius: 4px;
                     }
                     QPushButton {
