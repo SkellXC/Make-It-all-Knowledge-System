@@ -846,9 +846,6 @@ def select_all_data():
     data = cursor.fetchall()
     return data
 
-if __name__ == "__main__":
-    # Use this to add simulated data to the database for testing purposes.
-    add_employee("Tony", "Stark", "tony.stark@makeitall.com", "tony_stark", "password", "manager")
 
 
 # Run the file once update the database
@@ -1081,3 +1078,8 @@ def project_task_data(user, action, project_id=None, user_perms=None, task_id=No
 
             if action in ("edit", "complete", "delete") and cursor.rowcount != 1:
                 raise ValueError("This task is no longer available. Refresh and try again.")
+
+    if __name__ == "__main__":
+    # Use this to add simulated data to the database for testing purposes.
+        #add_employee("Tony", "Stark", "tony.stark@makeitall.com", "tony_stark", "password", "manager")
+        print("You've run the database file. Please run main.py")
