@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from app import colors
 from app.donut_chart import StatusOverviewCard
 from database.database import get_projects_for_employee, get_tasks_for_user
 
@@ -164,31 +165,31 @@ class EmployeeDashboard(QWidget):
         if not overdue:
             card, layout = self.create_list_card("Overdue tasks", "overdueCard")
             card.setStyleSheet(
-                "#overdueCard { background: #e8f5e9; border: 1px solid #2e7d32; border-radius: 10px; }"
+                f"#overdueCard {{ background: {colors.DONE_TINT}; border: 1px solid {colors.DONE_TEXT}; border-radius: 10px; }}"
             )
-            layout.itemAt(0).widget().setStyleSheet("color: #2e7d32; font-weight: bold; font-size: 18px;")
+            layout.itemAt(0).widget().setStyleSheet(f"color: {colors.DONE_TEXT}; font-weight: bold; font-size: 18px;")
             layout.addWidget(QLabel("You're all caught up. No overdue tasks."))
             self.content_layout.addWidget(card)
             return
 
         card, layout = self.create_list_card(f"Overdue tasks ({len(overdue)})", "overdueCard")
         card.setStyleSheet(
-            "#overdueCard { background: #fce8e6; border: 1px solid #b3261e; border-radius: 10px; }"
+            f"#overdueCard {{ background: {colors.OVERDUE_TINT}; border: 1px solid {colors.OVERDUE_TEXT}; border-radius: 10px; }}"
         )
-        layout.itemAt(0).widget().setStyleSheet("color: #b3261e; font-weight: bold; font-size: 18px;")
+        layout.itemAt(0).widget().setStyleSheet(f"color: {colors.OVERDUE_TEXT}; font-weight: bold; font-size: 18px;")
 
         for task in overdue[:MAX_OVERDUE_SHOWN]:
             days = (TODAY - task["due"]).days
             # show the project and the original due date under the title
             row_task = dict(task, project=f"{task['project']} · due {task['due'].strftime('%a %d %b')}")
             layout.addWidget(
-                self.create_task_row(row_task, f"{days} day{'s' if days != 1 else ''} overdue", "#b3261e")
+                self.create_task_row(row_task, f"{days} day{'s' if days != 1 else ''} overdue", colors.OVERDUE_TEXT)
             )
 
         hidden = len(overdue) - MAX_OVERDUE_SHOWN
         if hidden > 0:
             more = QLabel(f"+ {hidden} more overdue")
-            more.setStyleSheet("color: #b3261e; margin-top: 6px;")
+            more.setStyleSheet(f"color: {colors.OVERDUE_TEXT}; margin-top: 6px;")
             layout.addWidget(more)
 
         self.content_layout.addWidget(card)
@@ -196,8 +197,6 @@ class EmployeeDashboard(QWidget):
     # OVERVIEW
     def build_overview(self, projects):
         """Two donut cards side by side: projects by status, tasks by due date."""
-        green, blue, red, amber, grey = "#94c83d", "#4c8df6", "#e5484d", "#f5a623", "#9aa5ad"
-
         not_started = len([p for p in projects if p[4] == "not started"])
         in_progress = len([p for p in projects if p[4] == "in progress"])
 
@@ -212,14 +211,15 @@ class EmployeeDashboard(QWidget):
         row.addWidget(StatusOverviewCard(
             "Project status",
             "A snapshot of your projects.",
-            [("Not started", not_started, green), ("In progress", in_progress, blue)],
+            [("Not started", not_started, colors.NOT_STARTED),
+             ("In progress", in_progress, colors.IN_PROGRESS)],
             "Projects",
         ))
         row.addWidget(StatusOverviewCard(
             "Task overview",
             "Your open tasks by due date.",
-            [("Overdue", overdue, red), ("Due today", due_today, amber),
-             ("Upcoming", upcoming, green), ("No due date", no_date, grey)],
+            [("Overdue", overdue, colors.OVERDUE), ("Due today", due_today, colors.DUE_SOON),
+             ("Upcoming", upcoming, colors.UPCOMING), ("No due date", no_date, colors.NO_DATE)],
             "Tasks",
         ))
         self.content_layout.addLayout(row)
@@ -289,7 +289,7 @@ class EmployeeDashboard(QWidget):
             group_label.setStyleSheet("color: #5a6b75; margin-top: 8px;")
             layout.addWidget(group_label)
             for task in members:
-                layout.addWidget(self.create_task_row(task, task["due"].strftime("%a %d %b"), "#0e6b63"))
+                layout.addWidget(self.create_task_row(task, task["due"].strftime("%a %d %b"), colors.UPCOMING))
 
         if undated:
             group_label = QLabel("No due date")

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 
+from app import colors
 from app.donut_chart import StatusOverviewCard
 from pages.employee_dashboard import EmployeeDashboard
 from database.database import (
@@ -22,7 +23,6 @@ from database.database import (
 )
 
 CHARTS_PER_ROW = 2
-AMBER, GREEN = "#f5a623", "#94c83d"
 
 
 def clear_layout(layout):
@@ -145,7 +145,7 @@ class TeamLeaderView(QWidget):
             card = StatusOverviewCard(
                 name,
                 subtitle,
-                [("To do", todo, AMBER), ("Done", done, GREEN)],
+                [("To do", todo, colors.NOT_STARTED), ("Done", done, colors.DONE)],
                 "Tasks",  # the number in the middle is the total
             )
 
@@ -195,8 +195,8 @@ class TeamLeaderView(QWidget):
             bar.setTextVisible(False)
             bar.setFixedHeight(8)
             bar.setStyleSheet(
-                "QProgressBar { background: #d8e0e5; border: none; border-radius: 4px; }"
-                "QProgressBar::chunk { background: #94c83d; border-radius: 4px; }"
+                f"QProgressBar {{ background: {colors.TRACK}; border: none; border-radius: 4px; }}"
+                f"QProgressBar::chunk {{ background: {colors.DONE}; border-radius: 4px; }}"
             )
 
             person = QVBoxLayout()
@@ -216,7 +216,7 @@ QTabBar::tab {
     padding: 12px 20px; margin-right: 6px; font-size: 15px; font-weight: bold;
     color: #5a6b75; background: transparent; border-bottom: 3px solid transparent;
 }
-QTabBar::tab:selected { color: #0e6b63; border-bottom: 3px solid #0e6b63; }
+QTabBar::tab:selected { color: #476da6; border-bottom: 3px solid #476da6; }
 QTabBar::tab:hover:!selected { color: #13222b; }
 """
 

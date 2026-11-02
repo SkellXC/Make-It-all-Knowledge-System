@@ -67,7 +67,7 @@ EXPANDED_PAGE_STYLE = """
         font-weight: bold;
     }
     QProgressBar::chunk {
-        background-color: #294e6e; /* Deep blue matching TodoWidget buttons */
+        background-color: #22c55e; /* Green = done, matches the dashboards */
         border-radius: 5px;
     }
     QPushButton {
