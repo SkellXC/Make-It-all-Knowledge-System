@@ -1,7 +1,9 @@
 import sqlite3
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QLabel, QLineEdit, QTextEdit, QVBoxLayout,
+    QComboBox, QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
+    QTextEdit, QVBoxLayout,
 )
 
 from database.knowledge import CATEGORIES, add_post
@@ -17,33 +19,44 @@ class CreatePostDialog(QDialog):
 
     def setup_ui(self):
         self.setObjectName("knowledgeDialog")
+        self.setProperty("formDialog", True)
         self.setWindowTitle("Create post")
-        self.resize(500, 420)
+        self.setMinimumSize(480, 360)
+        self.resize(560, 440)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Category"))
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+        form = QFormLayout()
+        form.setSpacing(10)
         self.category_input = QComboBox()
         self.category_input.setObjectName("postCategoryInput")
         for key, label in CATEGORIES.items():
             self.category_input.addItem(label, key)
         self.category_input.setCurrentIndex(self.category_input.findData(self.category))
-        layout.addWidget(self.category_input)
-        layout.addWidget(QLabel("Title"))
         self.title_input = QLineEdit()
         self.title_input.setObjectName("postTitleInput")
-        layout.addWidget(self.title_input)
-        layout.addWidget(QLabel("Content"))
+        self.title_input.setPlaceholderText("Post title")
         self.content_input = QTextEdit()
         self.content_input.setAcceptRichText(False)
         self.content_input.setObjectName("postContentInput")
-        layout.addWidget(self.content_input, 1)
+        self.content_input.setPlaceholderText("Share a question, solution or useful information.")
+        self.content_input.setMinimumHeight(180)
+        form.addRow("Category", self.category_input)
+        form.addRow("Title", self.title_input)
+        form.addRow("Content", self.content_input)
+        layout.addLayout(form, 1)
         self.error_label = QLabel()
         self.error_label.setObjectName("knowledgeError")
+        self.error_label.setTextFormat(Qt.TextFormat.PlainText)
         self.error_label.setWordWrap(True)
         layout.addWidget(self.error_label)
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Post")
+        post_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        post_button.setText("Post")
+        post_button.setObjectName("formPrimary")
+        post_button.setDefault(True)
         buttons.rejected.connect(self.reject)
         buttons.accepted.connect(self.save_post)
         layout.addWidget(buttons)

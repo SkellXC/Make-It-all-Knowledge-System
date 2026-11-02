@@ -27,6 +27,7 @@ class ProjectDialog(QDialog):
         self.user = user
         self.on_save = on_save
         self.setObjectName("projectDialog")
+        self.setProperty("formDialog", True)
         self.setWindowTitle("Edit project" if project else "Add project")
         self.setMinimumWidth(480)
 
