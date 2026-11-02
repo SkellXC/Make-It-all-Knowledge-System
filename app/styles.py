@@ -230,4 +230,13 @@ QWidget#knowledgePage QScrollBar::add-line:vertical,
 QWidget#knowledgePage QScrollBar::sub-line:vertical { height: 0; }
 QWidget#knowledgePage QScrollBar::add-page:vertical,
 QWidget#knowledgePage QScrollBar::sub-page:vertical { background: transparent; }
+
+/* Registration page */
+QLabel#fieldError { color: #d32f2f; font-size: 11px; }
+QFrame#loginCard QPushButton#secondaryButton {
+    background: white;
+    color: #476da6;
+    border: 1px solid #476da6;
+}
+QFrame#loginCard QPushButton#secondaryButton:hover { background: #eef2f8; }
 """

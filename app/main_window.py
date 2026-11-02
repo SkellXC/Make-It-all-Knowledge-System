@@ -14,6 +14,8 @@ from app.navigation import PAGES, dashboard_for, visible_pages
 from pages.login_page import LoginPage
 from pages.projects_page import ProjectsPage
 from pages.expanded_project_page import ExpandedProjectsPage
+from pages.mfa_setup_page import MfaSetupPage
+from pages.registration_page import RegistrationPage
 
 
 class MainWindow(QMainWindow):
@@ -96,6 +98,26 @@ class MainWindow(QMainWindow):
         self.root_stack.setCurrentWidget(self.workspace)
         self.show_page("dashboard")
 
+    def show_registration(self):
+        self.registration_page.clear_form()
+        self.root_stack.setCurrentWidget(self.registration_page)
+        self.registration_page.inputs["first_name"].setFocus()
+
+    def show_login(self):
+        self.login_page.clear_form()
+        self.root_stack.setCurrentWidget(self.login_page)
+        self.login_page.email_input.setFocus()
+
+    def show_mfa_setup(self, user):
+        self.pending_user = user
+        self.registration_page.clear_form()
+        self.root_stack.setCurrentWidget(self.mfa_page)
+
+    def finish_registration(self):
+        # "Skip" on the MFA screen: sign the new user straight in.
+        user, self.pending_user = self.pending_user, None
+        if user is not None:
+            self.start_session(user)
         
     def add_page(self, key, page_class):
         page = page_class(user=self.user.copy())
@@ -115,6 +137,12 @@ class MainWindow(QMainWindow):
 
     def logout(self):
         self.root_stack.setCurrentWidget(self.login_page)
+        self.registration_page = RegistrationPage()
+        self.mfa_page = MfaSetupPage()
+        self.pending_user = None  # new account waiting on the MFA screen
+
+        self.root_stack.addWidget(self.registration_page)
+        self.root_stack.addWidget(self.mfa_page)
         self.clear_pages()
         self.user = None
         self.account_label.clear()

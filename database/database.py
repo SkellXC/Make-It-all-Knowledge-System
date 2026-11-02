@@ -277,6 +277,26 @@ def get_employee_by_email(email):
 
     return employee
 
+def get_employee_by_username(username):
+    """Returns (id, first, second, email, username, password, role_name, role_icon) or None.
+
+    The username match ignores upper/lower case.
+    """
+    connection = get_database_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    SELECT e.id, e.first_name, e.second_name, e.email, e.username,
+           e.password, r.name, r.icon
+    FROM employees e
+    JOIN roles r ON r.id = e.role_id
+    WHERE LOWER(e.username) = LOWER(?)
+    """, (username,))
+    employee = cursor.fetchone()
+
+    connection.close()
+
+    return employee
 
 def get_employee_by_id(employee_id):
     """Returns (id, first, second, email, username, password, role_name, role_icon) for an employee id."""

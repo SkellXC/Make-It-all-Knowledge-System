@@ -22,6 +22,7 @@ from authentication.login_backend import login_user
 
 class LoginPage(QWidget):
     logged_in = Signal(dict)
+    register_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -66,6 +67,18 @@ class LoginPage(QWidget):
         hint.setObjectName("loginHint")
         hint.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         form.addWidget(hint)
+
+        register_link = QLabel(
+            "Don't have an account? "
+            '<a href="#register" style="color:#476da6; text-decoration:none;">Register here</a>'
+        )
+        register_link.setObjectName("loginHint")
+        register_link.setTextFormat(Qt.TextFormat.RichText)
+        register_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        register_link.linkActivated.connect(lambda _link: self.register_requested.emit())
+        self.register_link = register_link
+        form.addWidget(register_link)
+        
         layout.addWidget(card, alignment=Qt.AlignmentFlag.AlignCenter)
 
     def login(self):
