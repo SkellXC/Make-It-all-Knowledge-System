@@ -32,7 +32,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.root_stack)
         self.login_page = LoginPage()
         self.login_page.logged_in.connect(self.start_session)
+        self.login_page.register_requested.connect(self.show_registration)
         self.root_stack.addWidget(self.login_page)
+
+        self.registration_page = RegistrationPage()
+        self.registration_page.login_requested.connect(self.show_login)
+        self.mfa_page = MfaSetupPage()
+        self.root_stack.addWidget(self.registration_page)
+        self.root_stack.addWidget(self.mfa_page)
 
         self.workspace = QWidget()
         self.root_stack.addWidget(self.workspace)
@@ -138,12 +145,7 @@ class MainWindow(QMainWindow):
 
     def logout(self):
         self.root_stack.setCurrentWidget(self.login_page)
-        self.registration_page = RegistrationPage()
-        self.mfa_page = MfaSetupPage()
         self.pending_user = None  # new account waiting on the MFA screen
-
-        self.root_stack.addWidget(self.registration_page)
-        self.root_stack.addWidget(self.mfa_page)
         self.clear_pages()
         self.user = None
         self.account_label.clear()
