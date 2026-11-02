@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
+from app.styles import STYLESHEET
+
 from app import colors
 from app.donut_chart import StatusOverviewCard
 from database.database import (
@@ -89,7 +91,7 @@ class EmployeeDashboard(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { background: #f3f5f8; border: none; }")
+        scroll.setStyleSheet(STYLESHEET)
         scroll.viewport().setAutoFillBackground(False)
         scroll_layout.addWidget(scroll)
 

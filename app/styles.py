@@ -137,6 +137,8 @@ QFrame#knowledgePostCard, QFrame#knowledgeReply {
     border-radius: 16px;
 }
 QFrame#knowledgePostCard QLabel, QFrame#knowledgeReply QLabel { background: transparent; }
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
 QScrollArea#knowledgeScroll { background: transparent; border: none; }
 QScrollArea#knowledgeScroll > QWidget > QWidget { background: transparent; }
 QWidget#knowledgePage QListWidget, QWidget#knowledgePage QTextEdit,
@@ -226,10 +228,25 @@ QWidget#knowledgePage QScrollBar::handle:vertical {
     border-radius: 4px;
     min-height: 24px;
 }
+QScrollBar:vertical {
+    background: #f3f5f8;
+    width: 8px;
+    border: none;
+}
+QScrollBar::handle:vertical {
+    background: #c5cfdc;
+    border-radius: 4px;
+    min-height: 24px;
+}
 QWidget#knowledgePage QScrollBar::add-line:vertical,
 QWidget#knowledgePage QScrollBar::sub-line:vertical { height: 0; }
 QWidget#knowledgePage QScrollBar::add-page:vertical,
 QWidget#knowledgePage QScrollBar::sub-page:vertical { background: transparent; }
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical { background: transparent; }
 
 /* Registration page */
 QLabel#fieldError { color: #d32f2f; font-size: 11px; }

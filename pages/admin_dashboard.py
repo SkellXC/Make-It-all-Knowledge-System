@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
     QWidget,
     QScrollArea,
 )
+from app.styles import STYLESHEET
+
 from PySide6.QtGui import Qt
 
 from database.database import (
@@ -32,7 +34,7 @@ class AdminDashboard(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(f"QScrollArea {{ background: #f3f5f8; border: none; }}")
+        scroll.setStyleSheet(STYLESHEET)
         scroll.viewport().setAutoFillBackground(False)
         scroll_layout.addWidget(scroll)
 

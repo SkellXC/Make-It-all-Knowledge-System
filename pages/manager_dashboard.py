@@ -7,6 +7,8 @@ Self-contained: it only needs
 """
 from datetime import date
 
+from app.styles import STYLESHEET
+
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -98,7 +100,7 @@ class ManagerView(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(f"QScrollArea {{ background: {PAGE_BACKGROUND}; border: none; }}")
+        scroll.setStyleSheet(STYLESHEET)
         scroll.viewport().setAutoFillBackground(False)
         outer.addWidget(scroll)
 
