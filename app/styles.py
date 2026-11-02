@@ -141,8 +141,7 @@ QScrollArea { background: transparent; border: none; }
 QScrollArea > QWidget > QWidget { background: transparent; }
 QScrollArea#knowledgeScroll { background: transparent; border: none; }
 QScrollArea#knowledgeScroll > QWidget > QWidget { background: transparent; }
-QWidget#knowledgePage QListWidget, QWidget#knowledgePage QTextEdit,
-QDialog#knowledgeDialog QTextEdit, QDialog#knowledgeDialog QComboBox {
+QWidget#knowledgePage QListWidget, QWidget#knowledgePage QTextEdit {
     background: white;
     border: 1px solid #d9dee7;
     border-radius: 6px;
@@ -152,14 +151,14 @@ QDialog#knowledgeDialog QTextEdit, QDialog#knowledgeDialog QComboBox {
 }
 QWidget#knowledgePage QListWidget::item { padding: 9px; }
 QWidget#knowledgePage QListWidget::item:selected { background: #e2ebf8; }
-QWidget#knowledgePage QPushButton, QDialog#knowledgeDialog QPushButton {
+QWidget#knowledgePage QPushButton {
     background: white;
     color: #365a8d;
     border: 1px solid #ccd6e4;
     border-radius: 6px;
     padding: 9px 12px;
 }
-QWidget#knowledgePage QPushButton:hover, QDialog#knowledgeDialog QPushButton:hover {
+QWidget#knowledgePage QPushButton:hover {
     background: #edf2f9;
 }
 QWidget#knowledgePage QPushButton#knowledgePrimary {
@@ -257,12 +256,12 @@ QFrame#loginCard QPushButton#secondaryButton {
 }
 QFrame#loginCard QPushButton#secondaryButton:hover { background: #eef2f8; }
 
-/* Add / edit project dialog */
-QDialog#projectDialog { background: #f3f5f8; }
-QDialog#projectDialog QLabel { background: transparent; }
-QDialog#projectDialog QLabel#projectError { color: #a3313c; }
-QDialog#projectDialog QPlainTextEdit, QDialog#projectDialog QComboBox,
-QDialog#projectDialog QDateEdit, QDialog#projectDialog QListWidget {
+/* Project and Knowledge Base forms */
+QDialog[formDialog="true"] { background: #f3f5f8; }
+QDialog[formDialog="true"] QLabel { background: transparent; }
+QDialog[formDialog="true"] QLabel#projectError { color: #a3313c; }
+QDialog[formDialog="true"] QTextEdit, QDialog[formDialog="true"] QPlainTextEdit, QDialog[formDialog="true"] QComboBox,
+QDialog[formDialog="true"] QDateEdit, QDialog[formDialog="true"] QListWidget {
     background: white;
     border: 1px solid #bdc9d9;
     border-radius: 5px;
@@ -270,31 +269,31 @@ QDialog#projectDialog QDateEdit, QDialog#projectDialog QListWidget {
     selection-background-color: #e2ebf8;
     selection-color: #243247;
 }
-QDialog#projectDialog QPlainTextEdit:focus, QDialog#projectDialog QComboBox:focus,
-QDialog#projectDialog QDateEdit:focus { border-color: #476da6; }
-QDialog#projectDialog QListWidget::item { padding: 5px; }
-QDialog#projectDialog QListWidget::item:selected { background: #e2ebf8; color: #243247; }
-QDialog#projectDialog QComboBox QAbstractItemView {
+QDialog[formDialog="true"] QTextEdit:focus, QDialog[formDialog="true"] QPlainTextEdit:focus, QDialog[formDialog="true"] QComboBox:focus,
+QDialog[formDialog="true"] QDateEdit:focus { border-color: #476da6; }
+QDialog[formDialog="true"] QListWidget::item { padding: 5px; }
+QDialog[formDialog="true"] QListWidget::item:selected { background: #e2ebf8; color: #243247; }
+QDialog[formDialog="true"] QComboBox QAbstractItemView {
     background: white;
     border: 1px solid #d9dee7;
     selection-background-color: #e2ebf8;
     selection-color: #243247;
 }
-QDialog#projectDialog QPushButton {
+QDialog[formDialog="true"] QPushButton {
     background: white;
     color: #365a8d;
     border: 1px solid #ccd6e4;
     border-radius: 6px;
     padding: 9px 18px;
 }
-QDialog#projectDialog QPushButton:hover { background: #edf2f9; }
-QDialog#projectDialog QPushButton#projectPrimary {
+QDialog[formDialog="true"] QPushButton:hover { background: #edf2f9; }
+QDialog[formDialog="true"] QPushButton#formPrimary, QDialog[formDialog="true"] QPushButton#projectPrimary {
     background: #476da6;
     color: white;
     border-color: #476da6;
 }
-QDialog#projectDialog QPushButton#projectPrimary:hover { background: #3b5e92; border-color: #3b5e92; }
-QDialog#projectDialog QPushButton:focus { border: 2px solid #91abd0; }
+QDialog[formDialog="true"] QPushButton#formPrimary:hover, QDialog[formDialog="true"] QPushButton#projectPrimary:hover { background: #3b5e92; border-color: #3b5e92; }
+QDialog[formDialog="true"] QPushButton:focus { border: 2px solid #91abd0; }
 
 /* Date picker pop-up (calendar) */
 QCalendarWidget QWidget { background: white; color: #243247; }

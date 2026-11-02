@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
 
 from app.navigation import PAGES, dashboard_for, visible_pages
 from pages.login_page import LoginPage
-from pages.projects_page import ProjectsPage
 from pages.expanded_project_page import ExpandedProjectsPage
 from pages.mfa_setup_page import MfaSetupPage
 from pages.registration_page import RegistrationPage

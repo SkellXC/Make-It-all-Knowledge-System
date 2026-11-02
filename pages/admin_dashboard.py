@@ -42,7 +42,7 @@ class AdminDashboard(QWidget):
         content = QWidget()
         content.setAutoFillBackground(False)
         content.setObjectName("admin_dashboard_content")
-        content.setStyleSheet(f"#admin_dashboard_content {{ background: #f3f5f8; }}")
+        content.setStyleSheet("#admin_dashboard_content { background: #f3f5f8; }")
         scroll.setWidget(content)
 
 

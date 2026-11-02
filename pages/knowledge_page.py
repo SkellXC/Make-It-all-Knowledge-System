@@ -2,10 +2,9 @@ import sqlite3
 from datetime import datetime, timezone
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QTextOption, QKeySequence, QShortcut, QTextOption
+from PySide6.QtGui import QKeySequence, QShortcut, QTextOption
 from PySide6.QtWidgets import (
     QButtonGroup, QDialog, QFrame, QHBoxLayout,
-    QLabel, QPushButton, QScrollArea, QStackedWidget,
     QTextEdit, QVBoxLayout, QWidget, QLabel, QLineEdit,
     QPushButton, QScrollArea, QStackedWidget,
 )
