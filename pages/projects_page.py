@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 # Importing necessary data using functions from database.py
 from database.database import list_projects_for_user, get_employee_by_id, add_project
 from pages.project_dialog import ProjectDialog
+from datetime import date
 
 MAX_ROWS = 3
 CARD_STYLE = """                    
@@ -152,7 +153,7 @@ class ProjectsPage(QWidget):
         title = QLabel(project["project_name"])
         title.setObjectName("CardTitle")
 
-        deadline = QLabel(f"Due {project['deadline']}")
+        deadline = QLabel(f"Due {date.strftime(date.strptime(project['deadline'], '%Y-%m-%d'), '%d %b %Y')}")
         pending = QLabel(f"{project['pending_tasks']} pending tasks")
 
         description = ElidedLabel(project['description'])
