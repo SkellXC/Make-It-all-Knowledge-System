@@ -134,6 +134,7 @@ class MainWindow(QMainWindow):
             self.page_stack.removeWidget(page)
             page.deleteLater()
         self.pages.clear()
+        self.close_expanded_project()
 
     def logout(self):
         self.root_stack.setCurrentWidget(self.login_page)
@@ -152,6 +153,7 @@ class MainWindow(QMainWindow):
     def show_page(self, key):
         if key not in self.pages:
             return  # not available to this user
+        self.close_expanded_project()  # leaving via the sidebar closes an open project
         page = self.pages[key]
         if hasattr(page, "on_show"):
             page.on_show()  # let the page reload its data
@@ -179,10 +181,15 @@ class MainWindow(QMainWindow):
 
     def show_project_overview(self):
         """Returns to project overiview and removes expanded page"""
+        self.close_expanded_project()
+        self.projects_page.refresh_projects()  # pick up edits and task changes
         self.page_stack.setCurrentWidget(self.projects_page)
 
-        self.page_stack.removeWidget(self.expanded_page)
-        self.expanded_page.deleteLater()
+    def close_expanded_project(self):
+        """Remove the expanded project page, if one is open."""
+        expanded = getattr(self, "expanded_page", None)
+        if expanded is None:
+            return
+        self.page_stack.removeWidget(expanded)
+        expanded.deleteLater()
         self.expanded_page = None
-
-    

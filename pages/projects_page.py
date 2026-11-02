@@ -1,8 +1,9 @@
-from PySide6.QtWidgets import QVBoxLayout, QScrollArea, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QScrollArea, QLayout, QWidget, QGridLayout, QLabel, QProgressBar, QFrame, QPushButton, QDialog
 from PySide6.QtGui import QFontMetrics, Qt, QPainter, QIcon # Truncate large project descriptions
 from PySide6.QtCore import Signal
 # Importing necessary data using functions from database.py
-from database.database import list_projects_for_user, get_employee_by_id, get_projects_for_employee
+from database.database import list_projects_for_user, get_employee_by_id, add_project
+from pages.project_dialog import ProjectDialog
 
 MAX_ROWS = 3
 CARD_STYLE = """                    
@@ -46,6 +47,17 @@ CARD_STYLE = """
                     QPushButton:checked { background: #355783; color: white; }
                     QPushButton:focus { border-color: #91abd0; }
                     QPushButton:disabled { color: #8495ac; }
+"""
+
+ADD_BUTTON_STYLE = """
+    QPushButton {
+        color: #dbe4f0;
+        background: #243c5b;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 11px 18px;
+    }
+    QPushButton:hover { background: #355783; }
 """
 
 class ElidedLabel(QLabel): # Overriding QLabel's paintEvent
@@ -126,8 +138,6 @@ class ProjectsPage(QWidget):
     def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
-        # debug
-        self.project_selected.connect(lambda p: print(f"It works. Clicked: {p['project_name']}"))
         self.setup_ui()
 
     def build_project_card(self, project):
@@ -204,14 +214,6 @@ class ProjectsPage(QWidget):
 
         self.current_user_role = employee[6]
 
-        employee_projects = get_projects_for_employee(self.user["id"])
-        employee_projects_in_progress = []
-        employee_projects_not_started = []
-        for project in employee_projects:
-            if (project[4] == "in progress"):
-                employee_projects_in_progress.append(project)
-            elif (project[4] == "not started"):
-                employee_projects_not_started.append(project)
         # instead of repeating if statements to check permissions, permission based access controls (PBAC) will be implemented
         # widgets do not care who the user is, only what the user is allowed to do
         # permissions will be mapped to bools that will be used into PyQt's .setVisible()
@@ -253,14 +255,46 @@ class ProjectsPage(QWidget):
         self.perms = role_permissions.get(self.current_user_role, role_permissions["employee"])
 
 
+        # header row: "Add project" is only shown to roles that may create projects
+        header_layout = QHBoxLayout()
+        header_layout.addStretch()
+        self.add_project_button = QPushButton("+ Add project")
+        self.add_project_button.setStyleSheet(ADD_BUTTON_STYLE)
+        self.add_project_button.setVisible(self.perms["create_project"])
+        self.add_project_button.clicked.connect(self.open_add_project_dialog)
+        header_layout.addWidget(self.add_project_button)
+        self.content_layout.addLayout(header_layout)
+
+        # the two project panels live in their own layout so they can be rebuilt
+        self.sections_layout = QVBoxLayout()
+        self.content_layout.addLayout(self.sections_layout)
+        self.content_layout.addStretch()
+        self.refresh_projects()
+
+    def refresh_projects(self):
+        """Reload the projects this user can see and rebuild both panels."""
+        while self.sections_layout.count():
+            widget = self.sections_layout.takeAt(0).widget()
+            if widget is not None:
+                widget.deleteLater()
+
         projects = list_projects_for_user(self.user)
         in_progress = [p for p in projects if p["status"] == "in progress"]
-        not_started = [p for p in projects if p["status"] in "not started"]
+        not_started = [p for p in projects if p["status"] == "not started"]
+        self.sections_layout.addWidget(self.build_project_section("Projects in progress", in_progress))
+        self.sections_layout.addWidget(self.build_project_section("Projects not started", not_started))
 
-        # adding project containers
-        self.content_layout.addWidget(self.build_project_section("Projects in progress", in_progress))
-        self.content_layout.addWidget(self.build_project_section("Projects not started", not_started))
-        self.content_layout.addStretch()
+    def on_show(self):
+        # called by MainWindow.show_page each time the page is opened
+        self.refresh_projects()
+
+    def open_add_project_dialog(self):
+        dialog = ProjectDialog(
+            self.user,
+            on_save=lambda values: add_project(self.user, **values),
+            parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_projects()
 
     def emit_view_project(self, project_data):
         self.project_selected.emit(project_data)

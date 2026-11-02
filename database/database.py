@@ -759,6 +759,152 @@ def list_projects_for_user(user):
     return projects
 
 
+# ---------------------------------------------------------------------------
+# Adding and editing projects
+# ---------------------------------------------------------------------------
+PROJECT_STATUSES = ("not started", "in progress")
+
+
+def _valid_date(value, label):
+    """Return value if it is a real 'YYYY-MM-DD' date, otherwise raise ValueError."""
+    try:
+        parsed = date.fromisoformat(str(value))
+    except ValueError:
+        raise ValueError(f"{label} must be a date in YYYY-MM-DD format.") from None
+    if parsed.isoformat() != value:
+        raise ValueError(f"{label} must be a date in YYYY-MM-DD format.")
+    return value
+
+
+def _check_project_fields(connection, project_name, description, manager_id,
+                          status, start_date, deadline):
+    """Validate the editable project fields. Returns the cleaned name and description."""
+    project_name = (project_name or "").strip()
+    description = (description or "").strip()
+    if not 1 <= len(project_name) <= 100:
+        raise ValueError("Enter a project name between 1 and 100 characters.")
+    if len(description) > 1000:
+        raise ValueError("The description can be at most 1000 characters.")
+    if status not in PROJECT_STATUSES:
+        raise ValueError("Choose Not started or In progress.")
+    start_date = _valid_date(start_date, "Start date")
+    deadline = _valid_date(deadline, "Deadline")
+    if deadline < start_date:
+        raise ValueError("The deadline cannot be before the start date.")
+    manager = connection.execute("""
+        SELECT r.name FROM employees e JOIN roles r ON r.id = e.role_id
+        WHERE e.id = ?
+    """, (manager_id,)).fetchone()
+    if manager is None or manager[0] not in ("manager", ADMIN_ROLE):
+        raise ValueError("Choose a manager or administrator as the project manager.")
+    return project_name, description
+
+
+def _check_member_ids(connection, member_ids, manager_id):
+    """Unique, existing employee ids. The manager is never listed as a member."""
+    members = []
+    for employee_id in member_ids or ():
+        if employee_id == manager_id or employee_id in members:
+            continue
+        if connection.execute(
+                "SELECT 1 FROM employees WHERE id = ?", (employee_id,)).fetchone() is None:
+            raise ValueError(f"Employee {employee_id} does not exist.")
+        members.append(employee_id)
+    return members
+
+
+def add_project(user, project_name, description, manager_id, status,
+                start_date, deadline, member_ids=()):
+    """Create a project and its team. Returns the new project's id.
+
+    Needs projects.create (and projects.assign if member_ids is not empty).
+    Raises PermissionError or ValueError with a message that is safe to show.
+    """
+    if not can(user, "projects.create"):
+        raise PermissionError("You do not have permission to create projects.")
+    if member_ids and not can(user, "projects.assign"):
+        raise PermissionError("You do not have permission to add people to projects.")
+
+    with closing(get_database_connection()) as connection:
+        with connection:  # commits on success, rolls back on any error
+            project_name, description = _check_project_fields(
+                connection, project_name, description, manager_id,
+                status, start_date, deadline)
+            members = _check_member_ids(connection, member_ids, manager_id)
+            cursor = connection.execute("""
+                INSERT INTO projects
+                    (project_name, description, manager_id, status, start_date, deadline)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (project_name, description, manager_id, status, start_date, deadline))
+            project_id = cursor.lastrowid
+            for employee_id in members:
+                connection.execute("""
+                    INSERT INTO project_members (project_id, employee_id) VALUES (?, ?)
+                """, (project_id, employee_id))
+    return project_id
+
+
+def update_project(user, project_id, project_name, description, manager_id,
+                   status, start_date, deadline, member_ids=None):
+    """Edit a project's details and, if member_ids is given, its team.
+
+    Needs projects.create (and projects.assign if the team actually changes).
+    Tasks keep their assigned_to. The only time one is cleared is when its
+    assignee is taken off the project's team, so nobody is left holding a task
+    on a project they are no longer part of.
+    """
+    if not can(user, "projects.create"):
+        raise PermissionError("You do not have permission to edit projects.")
+
+    with closing(get_database_connection()) as connection:
+        with connection:
+            if connection.execute(
+                    "SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+                raise ValueError("This project no longer exists. Refresh and try again.")
+            project_name, description = _check_project_fields(
+                connection, project_name, description, manager_id,
+                status, start_date, deadline)
+            connection.execute("""
+                UPDATE projects
+                SET project_name = ?, description = ?, manager_id = ?,
+                    status = ?, start_date = ?, deadline = ?
+                WHERE id = ?
+            """, (project_name, description, manager_id, status,
+                  start_date, deadline, project_id))
+
+            if member_ids is None:
+                return
+            members = set(_check_member_ids(connection, member_ids, manager_id))
+            current = {row[0] for row in connection.execute(
+                "SELECT employee_id FROM project_members WHERE project_id = ?",
+                (project_id,))}
+            removed = current - members - {manager_id}
+            added = members - current
+            if (removed or added) and not can(user, "projects.assign"):
+                raise PermissionError("You do not have permission to change who is on a project.")
+            for employee_id in removed:
+                connection.execute(
+                    "DELETE FROM project_members WHERE project_id = ? AND employee_id = ?",
+                    (project_id, employee_id))
+                connection.execute("""
+                    UPDATE project_tasks SET assigned_to = NULL
+                    WHERE project_id = ? AND assigned_to = ?
+                """, (project_id, employee_id))
+            for employee_id in added:
+                connection.execute("""
+                    INSERT INTO project_members (project_id, employee_id) VALUES (?, ?)
+                """, (project_id, employee_id))
+
+
+def get_project_for_user(user, project_id):
+    """One project as a dict (same keys as list_projects_for_user), or None if
+    it doesn't exist or this user isn't allowed to see it."""
+    for project in list_projects_for_user(user):
+        if project["id"] == project_id:
+            return project
+    return None
+
+
 # Simulated project data (test data only)
 SIMULATED_TASK_TITLES = [
     "Gather requirements",
@@ -970,6 +1116,7 @@ def create_project_tasks_table(connection):
             priority TEXT NOT NULL DEFAULT 'normal'
                 CHECK (priority IN ('low', 'normal', 'high')),
             due_date TEXT,
+            assigned_to INTEGER,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
             FOREIGN KEY (assigned_to) REFERENCES employees(id) ON DELETE SET NULL
         )

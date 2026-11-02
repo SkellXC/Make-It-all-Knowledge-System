@@ -1,7 +1,11 @@
-from PySide6.QtWidgets import QVBoxLayout, QListWidget, QWidget, QPushButton, QLabel, QHBoxLayout, QProgressBar
+from PySide6.QtWidgets import QVBoxLayout, QListWidget, QWidget, QPushButton, QLabel, QHBoxLayout, QProgressBar, QDialog
 from PySide6.QtGui import QIcon
 from app.todo_widget import create_todo_widget
-from database.database import project_task_data, get_project_members, get_all_roles
+from database.database import (
+    project_task_data, get_project_members, get_all_roles,
+    update_project, get_project_for_user,
+)
+from pages.project_dialog import ProjectDialog
 
 # styling
 EMPLOYEE_LIST_STYLE = """
@@ -66,6 +70,15 @@ EXPANDED_PAGE_STYLE = """
         background-color: #294e6e; /* Deep blue matching TodoWidget buttons */
         border-radius: 5px;
     }
+    QPushButton {
+        text-align: center;
+        color: #dbe4f0;
+        background: #243c5b;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 11px 13px;
+             }
+    QPushButton:hover { background: #355783; }
 """
 
 class ExpandedProjectsPage(QWidget):
@@ -85,17 +98,7 @@ class ExpandedProjectsPage(QWidget):
         self.back_button = QPushButton("Back to Overview")
         back_icon = QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious)
         self.back_button.setIcon(back_icon)
-        self.back_button.setStyleSheet(""" 
-          QPushButton {
-                text-align: center;
-                color: #dbe4f0;
-                background: #243c5b;
-                border: 1px solid transparent;
-                border-radius: 6px;
-                padding: 11px 13px;
-             }
-             QPushButton:hover { background: #355783; }
-          """)
+        self.back_button.setStyleSheet(EXPANDED_PAGE_STYLE)
 
         # project details
 
@@ -103,6 +106,8 @@ class ExpandedProjectsPage(QWidget):
         header_layout = QHBoxLayout()
         self.edit_button = QPushButton("Edit Project")
         self.edit_button.setVisible(self.user_perms["create_project"])
+        self.edit_button.clicked.connect(self.open_edit_dialog)
+        self.edit_button.setStyleSheet(EXPANDED_PAGE_STYLE)
 
         header_layout.addWidget(self.back_button)
         header_layout.addStretch()
@@ -127,22 +132,13 @@ class ExpandedProjectsPage(QWidget):
         self.progress_header = (QLabel("Overall Progress"))
         self.progress_header.setObjectName("SectionHeader")
         self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(30)
+        self.progress_bar.setValue(self.project_data.get("progress_percent", 0))
         self.progress_bar.setFixedHeight(12)
 
         # listing employees working on the project in a frame
-        project_employees = get_project_members(self.project_data['id'])
         self.employee_list = QListWidget()
         self.employee_list.setStyleSheet(EMPLOYEE_LIST_STYLE)
-
-        roles = get_all_roles()
-        role_string = ""
-        role_map = {role[0]: role[1] for role in roles}
-        
-        for e_id, details in project_employees.items():
-            role_string = role_map.get(details['role_id'], "Unknown role")
-            self.employee_list.addItem(
-                f"{role_string}: {details['first_name']} {details['second_name']}, {details['email']}")
+        self.fill_member_list()
 
         details_column.addWidget(self.project_title)
         details_column.addWidget(self.desc_header)
@@ -174,8 +170,38 @@ class ExpandedProjectsPage(QWidget):
             can_manage=self.user_perms["manage_tasks"],
         )
         self.todo.setMaximumWidth(760)
+        # keep the progress bar in step with ticking tasks on and off
+        self.todo.tasks_changed.connect(self.refresh_project)
         tasks_column.addWidget(self.todo)
 
         content_split.addLayout(details_column, 1)
         content_split.addLayout(tasks_column, 2)
         self.main_layout.addLayout(content_split)
+
+    def fill_member_list(self):
+        self.employee_list.clear()
+        role_map = {role[0]: role[1] for role in get_all_roles()}
+        for details in get_project_members(self.project_data["id"]).values():
+            role_string = role_map.get(details["role_id"], "Unknown role")
+            self.employee_list.addItem(
+                f"{role_string}: {details['first_name']} {details['second_name']}, {details['email']}")
+
+    def open_edit_dialog(self):
+        dialog = ProjectDialog(
+            self.user,
+            on_save=lambda values: update_project(self.user, self.project_data["id"], **values),
+            project=self.project_data,
+            parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh_project()
+
+    def refresh_project(self):
+        """Reload this project's details, team and progress from the database."""
+        fresh = get_project_for_user(self.user, self.project_data["id"])
+        if fresh is None:
+            return
+        self.project_data = fresh
+        self.project_title.setText(fresh["project_name"])
+        self.proj_desc.setText(fresh["description"])
+        self.progress_bar.setValue(fresh["progress_percent"])
+        self.fill_member_list()

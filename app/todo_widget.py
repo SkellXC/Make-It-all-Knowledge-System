@@ -361,7 +361,7 @@ class TodoWidget(QWidget):
         self.task_surface.setVisible(bool(tasks))
         self.empty_label.setText(
             "No completed tasks yet." if self.show_completed
-            else "No active tasks. Add one below."
+            else ("No active tasks. Add one below." if self.can_manage else "No active tasks.")
         )
         self.empty_label.setVisible(not tasks)
         self.add_link.setVisible(self.can_manage and not self.show_completed and self.entry.isHidden())
@@ -431,16 +431,17 @@ class TodoWidget(QWidget):
         metadata.addStretch()
         details.addLayout(metadata)
         layout.addLayout(details, 1)
-        menu_button = QToolButton()
-        menu_button.setObjectName("taskActions")
-        menu_button.setText("⋯")
-        menu_button.setAccessibleName(f"Actions for {title}")
-        menu = QMenu(menu_button)
-        menu.addAction("Edit").triggered.connect(lambda: self.edit_task(task))
-        menu.addAction("Delete").triggered.connect(lambda: self.delete_task(task_id))
-        menu_button.setMenu(menu)
-        menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        layout.addWidget(menu_button)
+        if self.can_manage:  # people who can only tick tasks get no Edit/Delete menu
+            menu_button = QToolButton()
+            menu_button.setObjectName("taskActions")
+            menu_button.setText("⋯")
+            menu_button.setAccessibleName(f"Actions for {title}")
+            menu = QMenu(menu_button)
+            menu.addAction("Edit").triggered.connect(lambda: self.edit_task(task))
+            menu.addAction("Delete").triggered.connect(lambda: self.delete_task(task_id))
+            menu_button.setMenu(menu)
+            menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+            layout.addWidget(menu_button)
         self.rows_layout.addWidget(row)
 
     def show_task_entry(self):
