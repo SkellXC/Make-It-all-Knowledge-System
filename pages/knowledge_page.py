@@ -1,12 +1,13 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextOption
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QTextOption, QKeySequence, QShortcut, QTextOption
 from PySide6.QtWidgets import (
     QButtonGroup, QDialog, QFrame, QHBoxLayout,
     QLabel, QPushButton, QScrollArea, QStackedWidget,
-    QTextEdit, QVBoxLayout, QWidget,
+    QTextEdit, QVBoxLayout, QWidget, QLabel, QLineEdit,
+    QPushButton, QScrollArea, QStackedWidget,
 )
 
 from database.knowledge import (
@@ -102,12 +103,30 @@ class KnowledgePage(QWidget):
             group.addButton(button)
             switch_layout.addWidget(button)
             self.category_buttons[key] = button
+
         switch_row = QHBoxLayout()
+        switch_row.setSpacing(12)
         switch_row.addWidget(switch)
-        switch_row.addStretch()
-        hint = QLabel("Newest first")
-        hint.setObjectName("knowledgeHint")
-        switch_row.addWidget(hint)
+
+        # Search box: filters posts as you type (after a short pause).
+        self.search_input = QLineEdit()
+        self.search_input.setObjectName("knowledgeSearch")
+        self.search_input.setPlaceholderText("Search posts by title, content or author…  (Ctrl+F)")
+        self.search_input.setClearButtonEnabled(True)  # little "x" to clear
+        self.search_input.setAccessibleName("Search knowledge base")
+        self.search_timer = QTimer(self)
+        self.search_timer.setSingleShot(True)
+        self.search_timer.setInterval(200)  # wait 200 ms after the last keystroke
+        self.search_timer.timeout.connect(self.show_feed)
+        self.search_input.textChanged.connect(lambda _text: self.search_timer.start())
+        switch_row.addWidget(self.search_input, 1)
+        # Ctrl+F jumps to the search box whenever this page is showing
+        find_shortcut = QShortcut(QKeySequence.StandardKey.Find, self)
+        find_shortcut.activated.connect(self.focus_search)
+
+        self.sort_hint = QLabel("Newest first")
+        self.sort_hint.setObjectName("knowledgeHint")
+        switch_row.addWidget(self.sort_hint)
         self.content_layout.addLayout(switch_row)
 
     def setup_feed(self):
@@ -210,14 +229,32 @@ class KnowledgePage(QWidget):
         self.message.setText(text)
         self.message.show()
 
+    def focus_search(self):
+        self.search_input.setFocus()
+        self.search_input.selectAll()
+
+    @staticmethod
+    def post_matches(post, words):
+        """True if every search word appears in the title, content or author."""
+        text = " ".join(
+            str(post[key]) for key in ("title", "content", "author", "username")
+        ).lower()
+        return all(word in text for word in words)
+
+
     def show_feed(self, checked=False):
+        words = self.search_input.text().lower().split()
         try:
-            posts = get_posts(category=self.category)
+            # While searching, look in every category so nothing is hidden by the tabs.
+            posts = get_posts(category=None if words else self.category)
+            if words:
+                posts = [post for post in posts if self.post_matches(post, words)]
             self.liked_ids = get_liked_post_ids(self.user)
         except (sqlite3.Error, PermissionError):
             self.show_error("Could not load posts. Please try opening this page again.")
             return
         self.message.hide()
+        
         self.current_post_id = None
         self.reply_input.clear()
         self.reply_error.hide()
@@ -226,8 +263,17 @@ class KnowledgePage(QWidget):
         self.like_buttons.clear()
         for post in posts:
             self.feed_layout.addWidget(self.create_post_card(post))
+        if words:
+            count = len(posts)
+            self.sort_hint.setText(f"{count} result{'s' if count != 1 else ''} · newest first")
+        else:
+            self.sort_hint.setText("Newest first")
         if not posts:
-            empty = QLabel("No posts here yet. Share the first post in this category.")
+            if words:
+                message = f"No posts match \u201c{self.search_input.text().strip()}\u201d. Try fewer or different words."
+            else:
+                message = "No posts here yet. Share the first post in this category."
+            empty = QLabel(message)
             empty.setObjectName("knowledgeHint")
             empty.setWordWrap(True)
             self.feed_layout.addWidget(empty)
@@ -382,6 +428,9 @@ class KnowledgePage(QWidget):
     def create_post(self):
         dialog = CreatePostDialog(self.user, self.category, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.search_input.blockSignals(True)
+            self.search_input.clear()
+            self.search_input.blockSignals(False)
             self.set_category(dialog.category)
             self.open_post(dialog.post_id)
         dialog.deleteLater()
