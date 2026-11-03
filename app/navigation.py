@@ -41,7 +41,7 @@ PAGES = [
     Page("personal_tasks", "Personal To-do", PersonalTasksPage, "tasks.manage_own"),
     Page("projects", "Projects", ProjectsPage, "projects.view_own"),
     Page("knowledge", "Knowledge Base", KnowledgePage),
-    Page("roles", "Roles & Permissions", RolesPage, "roles.manage"),
+    Page("roles", "Role Permissions", RolesPage, "roles.manage"),
     Page("profile", "Profile", ProfilePage),
 ]
 
