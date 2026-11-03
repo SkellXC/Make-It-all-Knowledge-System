@@ -12,8 +12,8 @@ from database.database import (
     get_user_profile_picture,
     save_user_profile_picture
 )
-
-from PySide6.QtGui import QPixmap
+from app.styles import STYLESHEET
+from PySide6.QtGui import QPixmap, QPainter, QPainterPath
 from PySide6.QtCore import Qt
 
 
@@ -46,19 +46,26 @@ class ProfilePage(QWidget):
         self.content_layout.addSpacing(15)
 
         self.profile_picture = QLabel()
-        self.profile_picture.setFixedSize(180, 180)
+        # border radius to make pfp a circle is 50% of width and height
+        width_height = 180 # square so width and height are the same
+        self.profile_picture.setFixedSize(width_height, width_height)
         self.profile_picture.setAlignment(Qt.AlignCenter)
 
-        self.profile_picture.setStyleSheet("""
-            QLabel {
+        self.profile_picture.setStyleSheet(f"""
+            QLabel {{
                 background-color: white;
-                border-radius: 10px;
-            }
+                border-radius: {width_height // 2}; /* make the border a circle shape */
+                border-width: 2px;
+                border-style: solid;
+                border-color: #555555;
+            }}
         """)
 
         self.load_profile_picture()
 
         change_photo_button = QPushButton("Change Photo")
+        change_photo_button.setObjectName("change_pfp")
+        change_photo_button.setStyleSheet(STYLESHEET)
         change_photo_button.setFixedSize(160, 42)
         change_photo_button.clicked.connect(self.change_photo)
 
@@ -70,6 +77,7 @@ class ProfilePage(QWidget):
             self.profile_picture,
             alignment=Qt.AlignCenter
         )
+        self.profile_picture.lower()
 
         picture_layout.addWidget(
             change_photo_button,
@@ -157,11 +165,34 @@ class ProfilePage(QWidget):
             pixmap = QPixmap()
             pixmap.loadFromData(picture_data)
 
-            self.profile_picture.setPixmap(
-                pixmap.scaled(
-                    180,
-                    180,
-                    Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation
-                )
-            )
+            if picture_data:
+                pixmap = QPixmap()
+                if pixmap.loadFromData(picture_data):
+                    inner_size = 180 - 2 * 2 # label size - border on each side
+                    self.profile_picture.setPixmap(self.circular_pixmap(pixmap, inner_size))
+
+    @staticmethod
+    def circular_pixmap(pixmap, size):
+        """Crop a pixmap to a centred square, then clip it to a circle."""
+        # fill the square (cropping the overflow) instead of leaving gaps
+        scaled = pixmap.scaled(
+            size, size,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+        x = (scaled.width() - size) // 2
+        y = (scaled.height() - size) // 2
+        square = scaled.copy(x, y, size, size)
+
+        result = QPixmap(size, size)
+        result.fill(Qt.GlobalColor.transparent)
+
+        painter = QPainter(result)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        path = QPainterPath()
+        path.addEllipse(0, 0, size, size)
+        painter.setClipPath(path)
+        painter.drawPixmap(0, 0, square)
+        painter.end()
+        return result

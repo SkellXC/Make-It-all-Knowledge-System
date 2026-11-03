@@ -306,4 +306,12 @@ QCalendarWidget QAbstractItemView:enabled {
     selection-color: white;
 }
 QCalendarWidget QAbstractItemView:disabled { color: #a9b4c4; }
+/* Profile page styling */
+QPushButton#change_pfp {
+    background: #476da6;
+    color: white;
+    border: 1px solid #476da6;
+    border-radius: 6px;
+    padding: 10px;
+}
 """
